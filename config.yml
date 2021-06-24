@@ -1,0 +1,22 @@
+# Set to zero to use all processors on machine
+ncpu: 0
+
+# Train/test sets for determining optimum Markov order, will be added together for final model
+r0trainfile: "R0_subset1.tsv"
+r0testfile: "R0_subset2.tsv"
+
+# Adapter sequence outside of variable region
+ladapter: "GAGTTCTACAGTCCGACGATCCAG"
+radapter: "TCCGTATCGCTCCTCCAATG"
+
+# Number of top cores to determine using the SELEXisolate.py script (A larger number will result in a longer run time)
+numisolates: 100
+
+# Length of longest core used for alignment
+corelen: 7
+
+# Order of markov model to be used to predicting the R0 distribution of core sequences
+markovOrder: 4
+
+# Path to file generated using getR0dist.py
+r0kmerDist: "R0_kmerDist.pkl"
