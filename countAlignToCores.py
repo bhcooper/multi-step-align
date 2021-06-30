@@ -14,7 +14,7 @@ ladapter = config['ladapter']
 radapter = config['radapter']
 
 # Using top results from SELEXisolate.py
-ucores = read_csv(sys.argv[3], sep="\t")[:47]
+ucores = read_csv(sys.argv[3], sep="\t")
 ucores = ucores.iloc[:,0]
 ncores = len(ucores)
 ucores = np.append(ucores, tools.rc(ucores))
