@@ -14,7 +14,7 @@ ladapter = config['ladapter']
 radapter = config['radapter']
 
 # Using top results from SELEXisolate.py
-ucores = read_csv(sys.argv[3], sep="\t")
+ucores = read_csv(sys.argv[3], sep="\t")[:47]
 ucores = ucores.iloc[:,0]
 ncores = len(ucores)
 ucores = np.append(ucores, tools.rc(ucores))
@@ -40,6 +40,7 @@ print("Reading input . . .")
 
 seqs = read_csv(sys.argv[2], sep="\t")
 y = sm.copy(seqs.iloc[:,1].values)
+nseqs = np.sum(y)
 seqs = sm.copy(seqs.iloc[:,0].values)
 seqlen = len(seqs[0])
 nwindows = seqlen - maxcorelen + 1
@@ -53,9 +54,9 @@ for i,ncores_temp in enumerate(np.arange(5, ncores+1, 5)):
     query_temp = "|".join(ucores_temp)
     counts = sm.empty(len(seqs), dtype=np.uint8)
     tools.parallelAsync(tools.countHits, ncpu, counts, seqs, ladapter, radapter, query_temp)
-    counts[counts > 1] = 2
-    counts = np.unique(counts, return_counts=True)
     output[i,0] = ncores_temp
-    output[i,counts[0] + 1] = counts[1]
+    output[i,1] = np.sum(y[counts == 0])
+    output[i,2] = np.sum(y[counts == 1])
+    output[i,3] = nseqs - output[i,1] - output[i,2]
 
 tools.saveTable(sys.argv[2][:-4] + "_hitCounts.tsv", output.astype(str), header = "# cores\t0 hits\t1 hit\t>1 hit")
