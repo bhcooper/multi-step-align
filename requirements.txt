@@ -2,7 +2,7 @@
 matplotlib==3.4.1
 numpy==1.20.2
 pandas==1.2.3
-pyyaml==5.3.1
+pyyaml==5.4.1
 regex==2021.4.4
 scipy==1.6.2
 sharedmem==0.3.6
