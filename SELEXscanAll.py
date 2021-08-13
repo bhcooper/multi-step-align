@@ -161,7 +161,7 @@ Xcorelist[R2filter] /= 2
 # Get average core ddG/RT and savec
 core_means = np.nanmean(Xcorelist, axis=0)
 core_CI = np.nanstd(Xcorelist, axis=0) * 1.96 / np.sqrt(len(Xcorelist))
-outdata = np.array([ucores, core_means, core_CI]).transpose()
+outdata = np.array([ucores, -core_means, core_CI]).transpose()
 outdata = outdata[np.argsort(-core_means)]
 tools.saveTable(rndir + "_core_ddG.tsv", outdata, header="Core\tddG/RT\t0.95_CI")
 
@@ -178,7 +178,7 @@ ax.set_yticklabels(list(ucores[argsort]), rotation="horizontal", fontname="Couri
 plt.xticks(fontsize=16)
 plt.ylim((0,len(ucores)))
 plt.title(rndir, fontsize=18)
-plt.savefig(rndir + "_core_ddG.png", bbox_inches="tight", dpi=600)
+plt.savefig(rndir + "_core_ddG.svg", bbox_inches="tight", dpi=600)
 
 # Find ddG/RT per postion
 for i in np.arange(0, Xlist.shape[2], 4):
@@ -191,7 +191,7 @@ edge_means = np.nanmean(Xlist, axis=0)
 for i in np.arange(0, edge_means.shape[1], 4):
     edge_means[:,i:i+4] -= np.nanmean(edge_means[:,i:i+4], axis=1).reshape(-1,1)
 edge_CI = np.nanstd(Xlist, axis=0) * 1.96 / np.sqrt(np.sum(np.isfinite(Xlist), axis=0))
-outdata = np.concatenate((ucores.reshape(-1,1), edge_means), axis=1)
+outdata = np.concatenate((ucores.reshape(-1,1), -edge_means), axis=1)
 posLabels = [b + " [-" + str(s) + "]" for b, s in zip(tools.N*numshifts, np.repeat(np.arange(numshifts)[::-1] + 1, 4))]
 posLabels += [b + " [+" + str(s) + "]" for b, s in zip(tools.N*numshifts, np.repeat(np.arange(numshifts) + 1, 4))]
 tools.saveTable(rndir + "_edge_ddG.tsv", outdata, header="\t".join(["core"] + posLabels))
@@ -203,30 +203,35 @@ centered = np.array(Xlist[:,argmaxcore,:])
 for i in np.arange(0, centered.shape[1], 4):
     centered[:,i:i+4] -= np.mean(centered[:,i:i+4], axis=1).reshape(-1,1)
 bound = np.nanmax(np.abs(centered))
+print("Plotting all shifts for top core . . .")
 print(rndir + " abs max: " + str(bound))
 # bound = 0.75
-print("Bound set to +/- " + str(bound) + " for matplotlib's ""RdBu"" cmap")
+print("Bound set to +/- " + str(bound) + " for matplotlib's ""RdBu"" cmap\n")
 centered = (centered + bound)/(2*bound)
 centered = np.concatenate((centered, np.nanmean(centered, axis=0).reshape(1, -1)), axis=0)
-posLabels = [" -" + str(s) + "\n" + b if b == "C" else "\n" + b for b, s in zip(tools.N*numshifts, np.repeat(np.arange(numshifts)[::-1] + 1, 4))]
-posLabels += [" +" + str(s) + "\n" + b if b == "C" else "\n" + b for b, s in zip(tools.N*numshifts, np.repeat(np.arange(numshifts) + 1, 4))]
+posLabels = ["-" + str(s) + "\n" + b if b == "C" else "\n" + b for b, s in zip(tools.N*numshifts, np.repeat(np.arange(numshifts)[::-1] + 1, 4))]
+posLabels += ["+" + str(s) + "\n" + b if b == "C" else "\n" + b for b, s in zip(tools.N*numshifts, np.repeat(np.arange(numshifts) + 1, 4))]
 yticks = shiftnames
 yticks = ["".join(np.take(t.split(), [3,2])) for t in yticks] + ["Mean"]
 mid = numshifts*4
-tools.plotGrid(rndir + "_" + ucores[argmaxcore] + "_all_shifts.png", centered, ylabel="", xticks=posLabels, yticks=yticks, gridstridex = 4, gridstridey = len(shiftnames), vmin=-0.25, vmax=1.25, vline=numshifts*4-0.5, cmap="RdBu")
-tools.plotGrid(rndir + "_" + ucores[argmaxcore] + "_all_shifts_left.png", centered[:,:int(mid)], ylabel="", xticks=posLabels[:int(mid)], yticks=yticks, gridstridex = 4, gridstridey = len(shiftnames), vmin=-0.25, vmax=1.25, vline=mid-0.5, cmap="RdBu")
-tools.plotGrid(rndir + "_" + ucores[argmaxcore] + "_all_shifts_right.png", centered[:,int(mid):], ylabel="", xticks=posLabels[int(mid):], gridstridex = 4, gridstridey = len(shiftnames), vmin=-0.25, vmax=1.25, vline=-0.5, cmap="RdBu")
+tools.plotGrid(rndir + "_" + ucores[argmaxcore] + "_all_shifts.svg", centered, ylabel="", xticks=posLabels, yticks=yticks, gridstridex = 4, gridstridey = len(shiftnames), vmin=-0.25, vmax=1.25, vline=numshifts*4-0.5, cmap="RdBu")
+tools.plotGrid(rndir + "_" + ucores[argmaxcore] + "_all_shifts_left.svg", centered[:,:int(mid)], ylabel="", xticks=posLabels[:int(mid)], yticks=yticks, gridstridex = 4, gridstridey = len(shiftnames), vmin=-0.25, vmax=1.25, vline=mid-0.5, cmap="RdBu")
+tools.plotGrid(rndir + "_" + ucores[argmaxcore] + "_all_shifts_right.svg", centered[:,int(mid):], ylabel="", xticks=posLabels[int(mid):], gridstridex = 4, gridstridey = len(shiftnames), vmin=-0.25, vmax=1.25, vline=-0.5, cmap="RdBu")
+# Mean only
+# tools.plotGrid(rndir + "_" + ucores[argmaxcore] + "_all_shifts_left.svg", centered[:,:int(mid)][-1], ylabel="", xticks=posLabels[:int(mid)], yticks=[yticks[-1]], gridstridex = 4, gridstridey = len(shiftnames), vmin=-0.25, vmax=1.25, vline=mid-0.5, cmap="RdBu")
+# tools.plotGrid(rndir + "_" + ucores[argmaxcore] + "_all_shifts_right.svg", centered[:,int(mid):][-1], ylabel="", xticks=posLabels[int(mid):], gridstridex = 4, gridstridey = len(shiftnames), vmin=-0.25, vmax=1.25, vline=-0.5, cmap="RdBu")
 
 # Subtract averages per position per core and plot
 centered = np.array(edge_means)
 bound = np.nanmax(np.abs(centered))
+print("Plotting flanking contributions for all cores . . .")
 print(rndir + " abs max: " + str(bound))
 # bound = 0.75
 print("Bound set to +/- " + str(bound) + " for matplotlib's ""RdBu"" cmap")
 centered = (centered + bound)/(2*bound)
-tools.plotGrid(rndir + "_edge_ddG.png", centered, xticks=posLabels, yticks=ucores, gridstridex=4, gridstridey=None, vmin=-0.25, vmax=1.25, vline=numshifts*4-0.5, cmap="RdBu")
+tools.plotGrid(rndir + "_edge_ddG.svg", centered, xticks=posLabels, yticks=ucores, gridstridex=4, gridstridey=None, vmin=-0.25, vmax=1.25, vline=numshifts*4-0.5, cmap="RdBu")
 # Plot average only over all cores
-tools.plotGrid(rndir + "_edge_ddG_average.png", np.mean(centered,axis=0).reshape(1, -1), xticks=posLabels, yticks=["7-mer Average"], gridstridex=4, gridstridey=None, vmin=-0.25, vmax=1.25, vline=numshifts*4-0.5, cmap="RdBu")
+tools.plotGrid(rndir + "_edge_ddG_average.svg", np.mean(centered,axis=0).reshape(1, -1), xticks=posLabels, yticks=["7-mer Average"], gridstridex=4, gridstridey=None, vmin=-0.25, vmax=1.25, vline=numshifts*4-0.5, cmap="RdBu")
 
 # Calculate maximum contributions
 colave = np.zeros((len(edge_means), (numshifts)*2))
@@ -248,10 +253,9 @@ xlabels = ["-" + str(x) for x in np.arange(1,numshifts+1)[::-1]] + ["+" + str(x)
 ax.set_xticks(x)
 ax.set_xticklabels(xlabels, fontsize=10)
 
-print(np.sum(colave_mean[5:-7]))
 outdata = np.array([xlabels, colave_mean, var]).transpose()
 tools.saveTable(rndir + "_edge_range.tsv", outdata, header="position\trange\tvariance")
-plt.savefig(rndir + "_edge_range.png", bbox_inches="tight", dpi=600)
+plt.savefig(rndir + "_edge_range.svg", bbox_inches="tight", dpi=600)
 plt.close()
 
 # Hierarchical clustering of plots / trimmed region
@@ -263,11 +267,18 @@ temp = centered[:,:endtrim*4]
 
 figsize = np.array(temp.transpose().shape)/4
 figsize[0] /= 0.92
+
+argsort = np.argsort(-core_means)
+fig = plt.figure(figsize=figsize)
+ax1 = fig.add_axes((0, 0, 1, 1))
+tools.plotGrid(None, temp[argsort], xticks=labels, yticks=ucores[argsort], gridstridex=4, gridstridey=None, vmin=-0.25, vmax=1.25, vline=numshifts*4-0.5, cmap="RdBu", ax=ax1)
+plt.savefig(rndir + "_edges_left_core_sort.svg", bbox_inches="tight", dpi=600)
+
 argsort = np.argsort(ucores)
 fig = plt.figure(figsize=figsize)
 ax1 = fig.add_axes((0, 0, 1, 1))
 tools.plotGrid(None, temp[argsort], xticks=labels, yticks=ucores[argsort], gridstridex=4, gridstridey=None, vmin=-0.25, vmax=1.25, vline=numshifts*4-0.5, cmap="RdBu", ax=ax1)
-plt.savefig(rndir + "_edges_left_lexi_sort.png", bbox_inches="tight", dpi=600)
+plt.savefig(rndir + "_edges_left_lexi_sort.svg", bbox_inches="tight", dpi=600)
 
 # methods = ["single", "complete", "average", "weighted"]
 methods = ["average"]
@@ -280,7 +291,7 @@ for m in methods:
         argsort = shc.dendrogram(linkage, orientation="right", ax=ax2, no_labels=True, color_threshold=0, above_threshold_color="black",)["leaves"][::-1]
     tools.plotGrid(None, temp[argsort], xticks=labels, yticks=ucores[argsort], gridstridex=4, gridstridey=None, vmin=-0.25, vmax=1.25, vline=numshifts*4-0.5, cmap="RdBu", ax=ax1)
     ax2.axis("off")
-    plt.savefig(rndir + "_edges_left_clustered_" + m + ".png", bbox_inches="tight", dpi=600)
+    plt.savefig(rndir + "_edges_left_clustered_" + m + ".svg", bbox_inches="tight", dpi=600)
 
 starttrim = numshifts
 labels = posLabels[starttrim*4:]
@@ -288,11 +299,18 @@ temp = centered[:,starttrim*4:]
 
 figsize = np.array(temp.transpose().shape)/4
 figsize[0] /= 0.92
+
+argsort = np.argsort(-core_means)
+fig = plt.figure(figsize=figsize)
+ax1 = fig.add_axes((0, 0, 1, 1))
+tools.plotGrid(None, temp[argsort], xticks=labels, yticks=ucores[argsort], gridstridex=4, gridstridey=None, vmin=-0.25, vmax=1.25, vline=(numshifts-starttrim)*4-0.5, cmap="RdBu", ax=ax1)
+plt.savefig(rndir + "_edges_right_core_sort.svg", bbox_inches="tight", dpi=600)
+
 argsort = np.argsort([u[::-1] for u in ucores])
 fig = plt.figure(figsize=figsize)
 ax1 = fig.add_axes((0, 0, 1, 1))
 tools.plotGrid(None, temp[argsort], xticks=labels, yticks=ucores[argsort], gridstridex=4, gridstridey=None, vmin=-0.25, vmax=1.25, vline=(numshifts-starttrim)*4-0.5, cmap="RdBu", ax=ax1)
-plt.savefig(rndir + "_edges_right_lexi_r_sort.png", bbox_inches="tight", dpi=600)
+plt.savefig(rndir + "_edges_right_lexi_r_sort.svg", bbox_inches="tight", dpi=600)
 
 for m in methods:
     linkage = shc.linkage(temp, method=m, metric="cityblock", optimal_ordering=True)
@@ -304,4 +322,4 @@ for m in methods:
     tools.plotGrid(None, temp[argsort], xticks=labels, yticks=ucores[argsort], gridstridex=4, gridstridey=None, vmin=-0.25, vmax=1.25, vline=(numshifts-starttrim)*4-0.5, cmap="RdBu", ax=ax1)
     ax1.yaxis.tick_left()
     ax2.axis("off")
-    plt.savefig(rndir + "_edges_right_" + m + ".png", bbox_inches="tight", dpi=600)
+    plt.savefig(rndir + "_edges_right_" + m + ".svg", bbox_inches="tight", dpi=600)
