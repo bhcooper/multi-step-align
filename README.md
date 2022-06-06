@@ -6,7 +6,6 @@ All scripts were tested using Python 3.8.8 on linux. Scripts must be made execut
  \
 Note: If you would like to apply this framework to your dataset, please consider the following caveats:\
 • This framework was designed to analyze round 1 (R1) or round 2 (R2) SELEX-seq data since these rounds will have more information about moderate to low affinity binding sites.\
-  • In a future version, this may become a configurable option.\
 • Since this framework requires the alignment of every read to one core (including the reverse complement strand), this framework is not suitable for palindromic or pseudopalindromic cores\
   • A palindrome-specific version may be released at a later time that would treat flanking nucleotide contributions as symmetric\
-• This framework does not work well for poorly defined cores, or cores that do not faithfully indicate a binding site (ie: very short cores ≈4-5 bp)
+• This framework does not work well for poorly defined cores, or cores that do not faithfully indicate a binding site (ie: very short cores <5 bp)
