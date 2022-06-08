@@ -16,9 +16,9 @@ split.py R0.tsv
 getKmerDist.py R0.tsv
 
 # Set R0 train and test files and use best Markov model to calculate enrichment for various length k-mers
-# If "R2" is in file name, the square root of the enrichment is provided in the output to better represent relative affinities
-analyzeSELEXCounts.py config.yml Fkh1_R1.tsv
-analyzeSELEXCounts.py config.yml Fkh1_R2.tsv
+# R-th root of the enrichment is provided for later rounds of sequencing (round number provided as final argument)
+analyzeSELEXCounts.py config.yml Fkh1_R1.tsv 1
+analyzeSELEXCounts.py config.yml Fkh1_R2.tsv 2
 
 # Aligns sequences based on enrichment scores using top-down crawl method described in publication (Cooper et al, 2022)
 # R1 used to include more moderate-low affinity sequences
