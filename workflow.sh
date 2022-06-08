@@ -23,11 +23,13 @@ analyzeSELEXCounts.py config.yml Fkh1_R2.tsv 2
 # Aligns sequences based on enrichment scores using top-down crawl method described in publication (Cooper et al, 2022)
 # R1 used to include more moderate-low affinity sequences
 pip install TopDownCrawl
-TopDownCrawl enrichment/Fkh1/k7/affinities_R1.tsv
+TopDownCrawl enrichment/Fkh1/k9/affinities_R1.tsv
 
+# Larger k-mer length was used for alignment, but is trimmed to 7-bp region centered on known consensus for list of candidate cores
+# Trimmed shift 0 from affinities_R1_aligned.tsv to 7-bp region covering GTAAACA (or 6-bp region covering GACGCA for Fhl1)
 # Reprioritize the list of aligned sequences by iterative filtering as described in publication (Cooper et al, 2022)
 # Only top 100 candidates are returned by default
-SELEXisolate.py config.yml Fkh1_R1.tsv enrichment/Fkh1/k7/affinities_R1_aligned.tsv
+SELEXisolate.py config.yml Fkh1_R1.tsv enrichment/Fkh1/k9/affinities_R1_aligned_trimmed.tsv
 
 # Count how many sequences can be aligned given a specified list of cores
 countAlignToCores.py config.yml Fkh1_R1.tsv Fkh1_R1_k7_isolates.tsv
