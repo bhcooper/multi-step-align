@@ -23,6 +23,7 @@ rcParams['ytick.major.size'] = 0
 rcParams['ytick.minor.size'] = 0
 rcParams['ytick.direction'] = 'in'
 rcParams['xtick.direction'] = 'in'
+rcParams['svg.fonttype'] = 'none'
 
 N = ["A", "C", "G", "T"]
 IUPAC = {"A":["A"], "C":["C"], "G":["G"], "T":["T"], "R":["A", "G"],"Y":["C", "T"],"K":["G", "T"],"M":["A", "C"],"S":["C", "G"],
@@ -85,33 +86,50 @@ def getOverlapSet(seqslist):
     seqs, counts = np.unique(np.concatenate(seqslist), return_counts=True)
     return seqs[counts == numlists]
 
-def plotGrid(filename, matrix, xticks=[], yticks=[], xtickrotation="horizontal", ytickrotation="horizontal", xlabel="", ylabel="", title="", cmap="RdYlBu", vmin=None, vmax=None, gridstridex=None, gridstridey = None, figsize=None, vline=None, ax=None, vlines = None):
+def plotGrid(filename, matrix, xticks=[], yticks=[], xtickrotation="horizontal", ytickrotation="horizontal", xlabel="", ylabel="", title="", cmap="RdYlBu", vmin=None, vmax=None, gridstridex=None, gridstridey = None, figsize=None, vline=None, ax=None, vlines = None, tick_left = None):
     axGiven = True
     if(figsize == None):
+        if(len(matrix.shape) == 1):
+            matrix = matrix.reshape(1, -1)
         figsize = np.array(matrix.transpose().shape)/4
     if(ax == None):
         fig, ax = plt.subplots(figsize=figsize)
         axGiven = False
-    ax.matshow(matrix, cmap=cmap, vmin=vmin, vmax=vmax, aspect="auto")
+    ax.pcolormesh(matrix, cmap=cmap, vmin=vmin, vmax=vmax)
+    ax.invert_yaxis()
+    # ax.matshow(matrix, cmap=cmap, vmin=vmin, vmax=vmax, aspect="auto")
     if(vline):
-        ax.axvline(vline, color='red', linewidth=2)
+        ax.axvline(vline+0.5, color='red', linewidth=2)
+        # ax.axvline(vline, color='red', linewidth=2)
     if(vlines):
-        [ax.axvline(line, color='firebrick', linewidth=4) for line in vlines]
-    ax.set_xticks(range(matrix.shape[1]))
-    ax.set_yticks(range(matrix.shape[0]))
-    if(gridstridex != None):
-        ax.set_xticks(np.arange(matrix.shape[1]+1)[::gridstridex] - 0.5, minor=True)
-    if(gridstridey != None):
-        ax.set_yticks(np.arange(matrix.shape[0]+1)[::gridstridey] - 0.5, minor=True)
+        [ax.axvline(line+0.5, color='firebrick', linewidth=4) for line in vlines]
+        # [ax.axvline(line, color='firebrick', linewidth=4) for line in vlines]
+    ax.set_xticks(np.arange(matrix.shape[1])+0.5)
+    # ax.set_xticks(np.arange(matrix.shape[1]))
+    ax.set_yticks(np.arange(matrix.shape[0])+0.5)
+    # ax.set_yticks(np.arange(matrix.shape[0]))
+    if(gridstridex == None):
+        gridstridex = matrix.shape[1]
+    if(gridstridey == None):
+        gridstridey = matrix.shape[0]
+    ax.set_xticks(np.append(np.arange(matrix.shape[1]+1)[::gridstridex], matrix.shape[1]), minor=True)
+    # ax.set_xticks(np.arange(matrix.shape[1]+1)[::gridstridex] - 0.5, minor=True)
+    ax.set_yticks(np.append(np.arange(matrix.shape[0]+1)[::gridstridey], matrix.shape[0]), minor=True)
+    # ax.set_yticks(np.arange(matrix.shape[0]+1)[::gridstridey] - 0.5, minor=True)
     ax.set_xticklabels(xticks, fontsize=16, rotation=xtickrotation)
+    ax.xaxis.set_ticks_position('top') 
     ax.set_yticklabels(yticks, fontsize=18, rotation=ytickrotation, fontname="Courier New")
     ax.yaxis.tick_right()
     for edge, spine in ax.spines.items():
         spine.set_visible(False)
     ax.grid(which="minor", color="black", linewidth=0.5)
     ax.set_xlabel(xlabel, fontsize=18, fontweight="bold")
+    ax.xaxis.set_label_position('top') 
     ax.set_ylabel(ylabel, fontsize=18, fontweight="bold")
     ax.set_title(title)
+    if(tick_left):
+        ax.yaxis.tick_left()
+
     if(not axGiven):
         plt.savefig(filename, bbox_inches="tight", pad_inches=0, dpi=600)
         plt.close()
@@ -138,10 +156,15 @@ def markov(seqs, kmerCounts, order, shift, onRC):
     counts1 = counts1.iloc[:,shift:]
     counts2 = counts2.iloc[:,shift:]
 
-    pred = np.array([np.prod([counts1.loc[seq[j:j+order+1]].iloc[j] for j in range(len(seq) - order)]) for seq in seqs])
+    pred = np.array([[seq[j:j+order+1] for j in range(len(seq) - order)] for seq in seqs])
+    pred = np.array([counts1.loc[pred[:,j]].iloc[:,j].values for j in range(len(seqs[0]) - order)])
+    pred = np.product(pred, axis=0)
     argfilter = pred > 0
     if(order > 0):
-        pred[argfilter] /= np.array([np.prod([counts2.loc[seq[j:j+order]].iloc[j] for j in range(1,len(seq) - order)]) for seq in seqs])[argfilter]
+        div = np.array([[seq[j:j+order] for j in range(1,len(seq) - order)] for seq in seqs[argfilter]])
+        div = np.array([counts2.loc[div[:,j]].iloc[:,j].values for j in range(len(seqs[0]) - order-1)])
+        div = np.product(div, axis=0)
+        pred[argfilter] /= div
     return pred
 
 
@@ -175,7 +198,7 @@ def encode1mers_task(X, seqs, indices):
 def encode1mers(seqs, ncpu=0):
     if(ncpu == 0):
         ncpu = mp.cpu_count()
-    X = sm.empty((len(seqs), len(seqs[0])*4))
+    X = sm.empty((len(seqs), len(seqs[0])*4), dtype=bool)
     parallelAsync(encode1mers_task, ncpu, X, seqs)
     return X
 

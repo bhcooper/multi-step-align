@@ -12,6 +12,7 @@ ncpu = config['ncpu']
 r0trainfile = config['r0trainfile']
 r0testfile = config['r0testfile']
 rnfile = sys.argv[2]
+cycles = int(sys.argv[3])
 
 rnname = rnfile.split("_")[0]
 rntype = "_".join(rnfile[:-4].split("_")[1:])
@@ -19,8 +20,6 @@ rntype = "_".join(rnfile[:-4].split("_")[1:])
 tools.mkdir("savedCounts")
 tools.mkdir("enrichment")
 tools.mkdir("enrichment/" + rnname)
-
-
 
 def getExpectedDist(seqs, mmk, trainKCounts):
     counts1 = trainKCounts[mmk-1]
@@ -75,6 +74,15 @@ for k in range(1, varlen):
 
 print("\nk-max: " + str(kmax) + "\n")
 
+# import pandas as pd
+
+# print(type(trainKCounts[5]))
+# x = pd.DataFrame.from_dict(testKCounts[4], orient='index').sort_values(0, ascending=False)
+# x.iloc[:,0] /= x.iloc[:,0].sum()
+
+# kmax = 6
+# print("\nk/-max set to: " + str(kmax))
+
 print("\n")
 mmkMax = 0
 r2max = np.NINF
@@ -82,30 +90,35 @@ for k in range(1,kmax+1):
     print("Markov Model Order: " + str(k - 1))
     test = testKCounts[-1]
     EDist = getExpectedDist(list(test.keys()), k, trainKCounts)
+    # x = pd.DataFrame({"seqs": list(test.keys()), "EDist":EDist}).sort_values("EDist", ascending=False)
     testDist = np.array(list(test.values()))
     testDist /= np.sum(testDist)
-    r2 = metrics.r2_score(testDist, EDist)
+    r2 = np.sqrt(metrics.r2_score(testDist, EDist))       
+    
     print("R^2 = " + str(r2))
     if(r2 > r2max):
         mmkMax = k
         r2max = r2
     else: 
         break
+    
 
 print("Best Markov Order: " + str(mmkMax-1) + "\n")
 print("R^2 = " + str(r2max) + "\n")
 
 # Use all counts in final model
-for i in range(len(trainKCounts)):
-    for key, value in testKCounts[i].items():
-        trainKCounts[i][key] += value
+# for i in range(len(trainKCounts)):
+    # for key, value in testKCounts[i].items():
+        # trainKCounts[i][key] += value
 
 rn = []
 infokMax = 0
 infoMax = 0
 maxCounts = None
 maxEDist = None
-for k in range(mmkMax, varlen+1):
+# for k in range(mmkMax, varlen+1):
+print("k-mer max restricted to 14 bp")
+for k in range(mmkMax, 15):
     picklefile = "savedCounts/" + rnfile + ".k" + str(k) + ".pkl"
     if(os.path.exists(picklefile)):
         rnCounts = tools.loadVariables(picklefile)
@@ -121,11 +134,14 @@ for k in range(mmkMax, varlen+1):
     mask100 = rnDist >= 100
     if(np.sum(mask100) == 0):
         break
+    total = np.sum(list(rnCounts.values()))
     rnDist /= np.sum(rnDist)
     rnDist = rnDist[mask100]
     seqs = np.array(list(rnCounts.keys()))[mask100]
     counts = np.array(list(rnCounts.values()))[mask100]
     Er0Dist = getExpectedDist(seqs, mmkMax, trainKCounts)
+    Er0Counts = Er0Dist * total
+    # x = pd.DataFrame({"seqs": seqs, "count": counts, "EDist":Er0Dist, "Ecounts":Er0Counts}).sort_values("count", ascending=False)
     info = np.sum(rnDist * np.log2(rnDist/Er0Dist))
     rnDistSum = np.sum(rnDist)
     Er0DistSum = np.sum(Er0Dist)
@@ -133,8 +149,10 @@ for k in range(mmkMax, varlen+1):
         info += (1 - rnDistSum) * np.log2((1 - rnDistSum)/(1 - Er0DistSum))
     print("Info Gain: k = " + str(k))
     print(info)
-    Er0Counts = Er0Dist * np.sum(counts)
+    Er0Counts = Er0Dist * total
     enrichment = rnDist/Er0Dist
+    
+    enrichment = np.power(enrichment, 1/cycles)
 
     se = enrichment * np.sqrt(2/counts)
     rcEnrichment = tools.consolidate(seqs, enrichment)
