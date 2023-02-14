@@ -81,6 +81,6 @@ analyzeAlignedSELEX.py config.yml Fkh1_Fkh2_R0_allcores.tsv Fkh1_R1_allcores.tsv
 
 ## Caveats
 If you would like to apply this framework to your dataset, please consider the following caveats:\
-• This framework does not work well for poorly defined cores which do not faithfully indicate true binding sites
-• Since this framework requires the alignment of every read to one core (including the reverse complement strand), this framework is not suitable for palindromic or pseudopalindromic cores\
-&nbsp;&nbsp;• A palindrome-specific version may be released at a later time that would treat flanking nucleotide contributions as symmetric\
+• This framework does not work well for poorly defined cores which do not faithfully indicate true binding sites\
+• Since this framework requires the alignment of every read to one core (including the reverse complement strand), this framework is not suitable for the analysis of palindromic or pseudopalindromic cores\
+&nbsp;&nbsp;&nbsp;&nbsp;• A palindrome-specific version may be released at a later time that would treat flanking nucleotide contributions as symmetric\
