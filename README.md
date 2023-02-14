@@ -14,7 +14,7 @@ This section details the steps used to align full-length SELEX-seq reads and cal
 We expect cores to be highly enriched within the SELEX-seq data, but not all enriched *k*-mers will cover the same region of the binding site. For this reason, we utilize a previously published tool called Top-Down Crawl<sup>2</sup> (TDC), which was developed for the alignment of quantitative binding data from experiments such as SELEX-seq. 
 
 
-We start with the alignment of 9-mers, since this is the longest *k*-mer in which a majority of unique *k*-mers occur at least 100 times. Long *k*-mers provide more positions to inform the alignment process, but increasing *k*-mers length decreases the signal-to-noise ratio of enrichment measurements and decreases coverage as described in the text.
+We start with the alignment of 9-mers, since this is the longest *k*-mer in which a majority of unique *k*-mers occur at least 100 times. Long *k*-mers provide more positions to inform the alignment process, but increasing *k*-mers length decreases the signal-to-noise ratio of enrichment measurements and decreases coverage as described in the text<sup>1</sup>.
 
 <sup>2</sup> *Cooper, B. H., Chiu, T. P., & Rohs, R. (2022). Top-Down Crawl: a method for the ultra-rapid and motif-free alignment of sequences with associated binding metrics. Bioinformatics, 38(22), 5121-5123.*
 
@@ -46,7 +46,7 @@ trimToConsensus.py Fhl1_R2_k9_aligned.tsv GACGCA
 ```
 
 ### Reprioritization of candidate cores
-To avoid complications resulting from combinatorial effects between multiple binding sites, we restrict our analysis to reads that only align to one core. This is also key to ensuring that observed flanking preferences are acting to modulate the given core rather than creating additional cores. However, this creates a trade-off between the number of cores we choose to analyze and the number of reads we can align. Therefore, rather than including the entire list of candidate cores in the alignment process, we must prioritize a subset of these sequences. This is done using a framework we call iterative prioritization as described in the manuscript. The included script incorporates the 95% stopping rule as desribed in the text to only return cores which appear to be enriched above background. 
+To avoid complications resulting from combinatorial effects between multiple binding sites, we restrict our analysis to reads that only align to one core. This is also key to ensuring that observed flanking preferences are acting to modulate the given core rather than creating additional cores. However, this creates a trade-off between the number of cores we choose to analyze and the number of reads we can align. Therefore, rather than including the entire list of candidate cores in the alignment process, we must prioritize a subset of these sequences. This is done using a framework we call iterative prioritization as described in the manuscript<sup>1</sup>. The included script incorporates the 95% stopping rule as desribed in the text to only return cores which appear to be enriched above background. 
 
 ```
 prioritize.py config.yml Fkh1_R1.tsv Fkh1_R2_k9_aligned_GTAAACA.tsv
@@ -61,7 +61,7 @@ mergeCores.py Fkh1_R1_topcores.tsv Fkh2_R1_topcores.tsv Hcm1_R1_topcores.tsv Fhl
 ```
 
 ### Alignment to selected cores and calculation of *ΔΔG/RT*
-At this point, full-length reads are aligned to our set of cores, discarding reads which do not align to exactly one core, considering adapter sequences up to 6 bp away upstream or downstream the variable region. Aligned sequences can then be used to calculate the the relative enrichment and *ΔΔG/RT* of differing cores and flanking bp. Several graphics are generated as well as described in the manuscript. 
+At this point, full-length reads are aligned to our set of cores, discarding reads which do not align to exactly one core, considering adapter sequences up to 6 bp away upstream or downstream the variable region. Aligned sequences can then be used to calculate the the relative enrichment and *ΔΔG/RT* of differing cores and flanking bp. Several graphics are generated as well as described in the manuscript<sup>1</sup>. 
 
 ```
 alignToCores.py config.yml Fkh1_Fkh2_R0.tsv allcores.tsv
