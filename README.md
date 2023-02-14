@@ -11,11 +11,12 @@ This section details the steps used to align full-length SELEX-seq reads and cal
 
 ### Identification of candidate cores
 
-We expect cores to be highly enriched within the SELEX-seq data, but not all enriched *k*-mers will cover the same region of the binding site. For this reason, we utilize a previously published tool called Top-Down Crawl (TDC), which was developed for the alignment of quantitative binding data from experiments such as SELEX-seq. 
+We expect cores to be highly enriched within the SELEX-seq data, but not all enriched *k*-mers will cover the same region of the binding site. For this reason, we utilize a previously published tool called Top-Down Crawl<sup>*<\sup> (TDC), which was developed for the alignment of quantitative binding data from experiments such as SELEX-seq. 
+
 
 We start with the alignment of 9-mers, since this is the longest *k*-mer in which a majority of unique *k*-mers occur at least 100 times. Long *k*-mers provide more positions to inform the alignment process, but increasing *k*-mers length decreases the signal-to-noise ratio of enrichment measurements and decreases coverage as described in the text.
 
-*Cooper, B. H., Chiu, T. P., & Rohs, R. (2022). Top-Down Crawl: a method for the ultra-rapid and motif-free alignment of sequences with associated binding metrics. Bioinformatics, 38(22), 5121-5123.*
+<sup>*<\sup>*Cooper, B. H., Chiu, T. P., & Rohs, R. (2022). Top-Down Crawl: a method for the ultra-rapid and motif-free alignment of sequences with associated binding metrics. Bioinformatics, 38(22), 5121-5123.*
 
 First, we calculate the relative enrichment of 9-mers using a modified R script from the SELEX package available on bioconductor. The script also depends on the R package, 'stringr'. 
 
