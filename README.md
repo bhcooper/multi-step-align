@@ -4,7 +4,7 @@ Here we go over several analytical frameworks for the analysis of SELEX-seq data
 *Cooper, B. H., Dantas Machado, A. C., Gan, Y., Aparicio, O. M., & Rohs, R. (in revision). DNA Binding Specificity of all four Saccharomyces cerevisiae Forkhead Transcription Factors.*
 
 ## Data availability
-Processed fastq files can be from GEO using accession GSE178811, where all trimming and filtering steps are described. 
+Processed fastq files can be found on GEO using accession GSE178811, where all trimming and filtering steps are described. 
 
 ## Multi-step Alignment
 This section details the steps used to align full-length SELEX-seq reads and calculate the relative enrichment and *ΔΔG/RT* of identified cores and flanking positions. This framework depends on the identification of "core" seqeunces, which are *k*-mers which can faithfully indicate true binding sites and which are in alignment with each other to cover a fixed region of the binding site. We utilize cores for alignment rather than a PWM because they do not assume independence between positions of the core and can better account for interdependencies. Analyzing cores separately can also better reveal when "false" cores, which do not faithfully indicate true binding sites, or unaligned cores were included in alignment.
@@ -68,9 +68,12 @@ alignToCores.py config.yml Fkh1_R1.tsv allcores.tsv
 alignToCores.py config.yml Fkh1_R2.tsv allcores.tsv
 
 analyzeAlignedSELEX.py config.yml Fkh1_Fkh2_R0_allcores.tsv Fkh1_R1_allcores.tsv 1 Fkh1_R2_allcores.tsv 2
+# Output folder: Fkh1_analysis
 ```
 
 ## Analysis of ChIP-exo data
+
+
 
 ## Multiple Linear Regression (MLR)
 
