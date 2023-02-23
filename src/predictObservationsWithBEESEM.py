@@ -1,0 +1,68 @@
+#!/usr/bin/env python
+
+import sys
+import numpy as np
+import pandas as pd
+from scipy.stats import spearmanr
+
+import matplotlib.pyplot as plt
+import matplotlib as mpl
+mpl.use('Agg')
+
+from matplotlib import rcParams
+rcParams['font.family'] = 'Arial'
+
+def MSE(x, y):
+    return np.sum((x - y)**2)
+
+Nlookup = {"A":0, "C":1, "G":2, "T":3}
+
+comp = {"A":"T", "C":"G", "G":"C", "T":"A", "N":"N"}
+def rc(seqs):
+    return np.array(["".join([comp[x] for x in seq][::-1]) for seq in seqs])
+
+obs = pd.read_csv(sys.argv[1], sep='\t', index_col=0, usecols=(0,1), names=['', 'p'], skiprows=1)
+obs = obs/obs.sum()
+
+bg = pd.read_csv(sys.argv[2], sep='\t', index_col=0, usecols=(0,1), names=['', 'p'], skiprows=1)
+bg /= bg.sum()
+
+relE = pd.read_csv(sys.argv[3], sep='\t', skiprows=1)
+
+relE = [np.product([relE.at[i, c] for i, c in enumerate(seq)]) for seq in obs.index]
+relE = pd.DataFrame(relE, index=obs.index, columns=['p'])
+relE /= relE.sum()
+
+pred = bg * relE
+pred /= pred.sum()
+pred = pred.sort_values(pred.columns[0], ascending=False)
+
+df = obs.merge(pred, left_index=True, right_index=True)
+df = np.log(df)
+
+fig, ax = plt.subplots(figsize=(3,3))
+ax.scatter(df.iloc[:,0], df.iloc[:,1], s=3)
+low = df.min().min()
+high = df.max().max()
+length = high-low
+low -= 0.05 * length
+high += 0.05 * length
+# r2 = r2_score(df.iloc[:,0], df.iloc[:,1])
+r = np.corrcoef(df.iloc[:,0], df.iloc[:,1])[0,1]
+print("r: " + str(r))
+mse = MSE(df.iloc[:,0], df.iloc[:,1])
+print("MSE: " + str(mse))
+ax.text(low+(0.4*length),high-(0.15*length), '${r}$ = %.2f' % r, fontsize=12, ha='right')
+ax.text(low+(0.4*length),high-(0.23*length), '${ρ}$ = %.2f' % mse, fontsize=12, ha='right')
+# ax.text(high-0.4*length,low+0.05*length, '${R^2}$ = %.2f' % r2, fontsize=12)
+plt.ylim((low,high))
+ax.set_xticks(ax.get_yticks())
+plt.xticks(fontsize=10)
+plt.yticks(fontsize=10)
+plt.xlim((low,high))
+plt.title('ChIP-exo Core Preferences', fontsize=14)
+plt.xlabel('observed [ln($p$)]', fontsize=14)
+plt.ylabel('BEESEM-based [ln($p$)]', fontsize=14)
+# plt.plot([low, high], [low, high], color = 'firebrick', alpha=0.5, linewidth = 1)
+plt.savefig("predBEESEM.png", bbox_inches="tight", dpi=1200)
+plt.close()

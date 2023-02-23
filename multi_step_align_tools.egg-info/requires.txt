@@ -1,0 +1,13 @@
+importlib-metadata<6
+numpy
+pandas
+regex
+sharedmem
+matplotlib
+PyYAML
+scipy
+scikit-learn
+biopython
+logomaker
+h5py==2.10
+tensorflow<2

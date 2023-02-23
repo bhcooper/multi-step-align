@@ -1,0 +1,10 @@
+numpy
+pandas
+regex
+sharedmem
+matplotlib
+PyYAML
+scipy
+scikit-learn
+biopython
+logomaker

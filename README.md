@@ -3,6 +3,16 @@ Here we go over several analytical frameworks for the analysis of SELEX-seq data
 
 <sup>1</sup> *Cooper, B. H., Dantas Machado, A. C., Gan, Y., Aparicio, O. M., & Rohs, R. (in revision). DNA Binding Specificity of all four Saccharomyces cerevisiae Forkhead Transcription Factors.*
 
+## Setup / Installation
+It is best to install all required packaged into an isolated environment in order to avoid dependency conflicts. I recommend doing this using conda (https://anaconda.org/). 
+
+```
+conda create -c conda-forge -c bioconda -c defaults -n multi-step-align python=3.7 bedtools bioconductor-selex r-stringr r-rjava
+conda activate multi-step-align
+
+pip install .
+```
+
 ## Data availability
 Processed fastq files can be found on GEO using accession GSE178811, where all trimming and filtering steps are described. 
 
@@ -23,13 +33,13 @@ First, we calculate the relative enrichment of 9-mers using a modified R script 
 https://bioconductor.org/packages/release/bioc/html/SELEX.html
 
 ```
-./calculateEnrichment.R <R0 input> <R# input> <round #> <k length>
+calculateEnrichment.R <R0 input> <R# input> <round #> <k length>
 
-./calculateEnrichment.R Fkh1_Fkh2_R0.fastq.gz Fkh1_R2.fastq.gz 2 9
+calculateEnrichment.R Fkh1_Fkh2_R0.fastq.gz Fkh1_R2.fastq.gz 2 9
 # Output: Fkh1_R2_k9.tsv
 ```
 
-The outputs are then aligned using TDC, which is available for download through pip. 
+The outputs are then aligned using TDC<sup>2</sup>, which is available for download through pip. 
 
 ```
 pip install TopDownCrawl
@@ -74,14 +84,117 @@ analyzeAlignedSELEX.py config.yml Fkh1_Fkh2_R0_allcores.tsv Fkh1_R1_allcores.tsv
 
 ## Analysis of ChIP-exo data
 
+The goal of this analysis is to determine if our SELEX-seq based measurements of enrichment can be used to predict the enrichment of sequences bound *in vivo*. In a previously published work, researchers performed ChIP-exo experiments targeting Fkh1 in S. cerevisiae<sup>3</sup>. In the corresponding GitHub page, a fasta file is provided by the authors containing genomic sequences spanning ±250 bp around each peak identified in the study. In our case, we were interested in counting the frequency of bound sites rather than identifying de novo motifs. For this reason, we aimed to utilize a narrower window spanning ±50 around each peak. Furthermore, to avoid double counting bound sites, we then merged overlapping peaks.
 
+<sup>3</sup> *Mondeel, T. D. G. A., Holland, P., Nielsen, J., & Barberis, M. (2019). ChIP-exo analysis highlights Fkh1 and Fkh2 transcription factors as hubs that integrate multi-scale networks in budding yeast. Nucleic acids research, 47(15), 7825-7841.*
+
+```
+wget https://raw.githubusercontent.com/barberislab/ChIP-exo_Fkh1_Fkh2/master/Data/binding_motif_analysis/fkh1_combined/Fkh1_combined.fasta
+
+
+getBed100.py Fkh1_combined.fasta
+Output: Fkh1_combined_100.bed
+
+wget https://hgdownload.soe.ucsc.edu/goldenPath/sacCer3/bigZips/sacCer3.fa.gz
+gunzip sacCer3.fa.gz
+bedtools merge -i Fkh1_combined_100.bed > Fkh1_combined_100_merged.bed 
+bedtools getfasta -fi sacCer3.fa -bed Fkh1_combined_100_merged.bed > Fkh1_combined_100_merged.fa
+```
+
+From this output, we can calculate the relative frequency of cores which appear to have been bound by Fkh1 *in vivo*. We can then compare these values to those that would be predicted based on the relative frequency of each core accross the entire genome and the enrichment measurements obtained from the SELEX-seq experiment. 
+
+```
+# Fkh1_core_RelE.tsv in Fkh1_analysis folder
+countHits.py Fkh1_combined_100_merged.fa Fkh1_core_RelE.tsv
+countHits.py sacCer3.fa Fkh1_core_RelE.tsv
+# Output: Fkh1_combined_100_merged_hits.tsv, sacCer3_hits.tsv
+
+predictObservationsWithSELEX.py Fkh1_combined_100_merged_hits.tsv sacCer3_hits.tsv Fkh1_core_RelE.tsv
+# Output: predSELEX.png
+```
+
+Alternatively, we can predict the expected enrichment using predicted frequencies according to a BEESEM-derived PFM. BEESEM can be downloaded from the GitHub page linked below. 
+
+https://github.com/sx-ruan/BEESEM
+
+``` 
+beesem.py -s <most enriched 7-mer as seed> <output name> <processed prior> <processed R# input>
+beesem.py -s GTAAACA beesem_k7 Fkh1_Fkh2_R0.tsv Fkh1_R1.tsv
+# Output: beesem_k7_rep=1_phs=10/results/pfm_r0_p9_w7.txt
+
+predictObservationsWithBEESEM.py Fkh1_combined_100_merged_hits.tsv sacCer3_hits.tsv beesem_k7_rep=1_phs=10/results/pfm_r0_p9_w7.txt
+# Output: predBEESEM.png
+```
+
+We also investigated whether the *in vivo* enrichment of bp flanking the core could be estimated using our SELEX-seq data. For this purpose, we focused on the positions flanking the most enriched core GTAAACA.
+
+```
+countFlanks.py Fkh1_combined_100_merged.fa GTAAACA 4 2
+countFlanks.py sacCer3.fa GTAAACA 4 2
+# Output: Fkh1_combined_100_merged_GTAAACA_-4_+2.tsv, sacCer3_GTAAACA_-4_+2.tsv
+
+# Fkh1_edge_ddG.tsv in Fkh1_analysis folder
+predictFlanks.py Fkh1_combined_100_merged_GTAAACA_-4_+2.tsv sacCer3_GTAAACA_-4_+2.tsv Fkh1_edge_ddG.tsv GTAAACA BEESEM_flanks.txt
+# Output: predFlanks_GTAAACA.png, metrics printed to STDOUT
+```
+
+In our case, SELEX-based predictions were able to better predict the observed enrichment of core sequences and flanking bp compared to BEESEM-based predictions. Additional details are discussed in the text<sup>1</sup>. 
 
 ## Multiple Linear Regression (MLR)
 
+The goal of this section is to use MLR to probe the importance of interdependencies accross differing regions of the binding site. By using this simple model, we can easily add or withold higher order features, as described in the text<sup>1</sup>, to determine what extent these features impact performance. 
+
+```
+getMaskedEnrichment.py <input alignment> <round #> <5' flank length> <3' flank length>
+getMaskedEnrichment.py Fkh1_R2_allcores.tsv 2 4 2
+# Output: Fkh1_R2_allcores_-4_+2.tsv
+
+getMaskedEnrichment.py <input> <5' flank length> <3' flank length>
+scoreMLR.py Fkh1_R2_allcores_-4_+2.tsv 4 2
+# Output: Fkh1_R2_allcores_-4_+2_MLR.png
+```
+
+We can also evaluate the performance of models predicting *ΔΔG/RT* of shorter *k*-mers, which cannot capture as many interependencies, but are generally less noisy.
+
+```
+getMaskedEnrichment.py <input alignment> <round #> <5' flank length> <3' flank length>
+getMaskedEnrichment.py Fkh1_R2_allcores.tsv 2 4 0
+# Output: Fkh1_R2_allcores_-4_+0.tsv
+
+getMaskedEnrichment.py <input> <5' flank length> <3' flank length>
+scoreMLR.py Fkh1_R2_allcores_-4_+0.tsv 4 0
+# Output: Fkh1_R2_allcores_-4_+0_MLR.png
+```
+
 ## Predicting flanking preferences using DeepBind and MLR
 
+To compare our alignment-based framework with a deep learning approach, we trained a model based on DeepBind's reverse-complement weight sharing framework<sup>4</sup> to predict high-resolution estimates of the *ΔΔG/RT* for any given 13-mer. To interpret the model in a matter that is comparable to our approach, we first predicted the *ΔΔG/RT* of all 13-mers covering four bp 5' and two bp 3' each of our selected seven bp cores. We then used these predictions to train an MLR model for each core, using 1-mer sequence features of the flanks as input. For each flanking position, model weights are centered and plotted for comparison with our flanking *ΔΔG/RT* measurements.
+
+```
+# I used conda to ensure compatible versioning with DeepBind
+conda create -n deepbind tensorflow=1 h5py=2.10 pandas matplotlib logomaker scikit-learn
+conda activate deepbind
+
+git clone --branch keras_1 https://github.com/kundajelab/keras.git
+cd keras
+pip install .
+cd ..
+
+# Removing the 100 count minimum seemed to greatly improve predictive power in my case
+calculateEnrichmentNoMin.R Fkh1_Fkh2_R0.fastq.gz Fkh1_R2.fastq.gz 2 13
+# Output: Fkh1_R2_k13_noMin.tsv
+
+trainDeepBind.py Fkh1_R2_k13_noMin.tsv
+# Output: trained_cnn.h5, trained_minMax.pkl
+
+predDeepBind.py trained_cnn.h5 traind_minMax.pkl Fkh1_core_ddG.tsv Fkh1_edge_ddG.tsv
+# Output: DeepBind_MLR.png
+```
+
+We found that our framework was more sensitive to flanking preferences, especially for lower affinity cores. Furthermore, our model was better able to distinguish preferences for flanking bp which modulate the affinity of the selected core vs flanking bp which create additional cores. 
+
 ## Caveats
-If you would like to apply this framework to your dataset, please consider the following caveats:\
+If you would like to apply the multi-step alignment framework to your dataset, please consider the following caveats:\
 • This framework does not work well for poorly defined cores which do not faithfully indicate true binding sites\
 • Since this framework requires the alignment of every read to one core (including the reverse complement strand), this framework is not suitable for the analysis of palindromic or pseudopalindromic cores\
 &nbsp;&nbsp;&nbsp;&nbsp;• A palindrome-specific version may be released at a later time that would treat flanking nucleotide contributions as symmetric\
