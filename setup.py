@@ -25,7 +25,6 @@ setup(
     ],
     python_requires=">=3.6",
     install_requires=[
-        "importlib-metadata<5",
         "numpy",
         "pandas",
         "regex",
@@ -36,7 +35,8 @@ setup(
         "scikit-learn",
         "biopython",
         "logomaker",
-        "h5py==2.10",
-        "tensorflow<2",
+        "h5py",
+        "tensorflow",
+        "TopDownCrawl"
     ],
 )

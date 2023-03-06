@@ -4,13 +4,17 @@ Here we go over several analytical frameworks for the analysis of SELEX-seq data
 <sup>1</sup> *Cooper, B. H., Dantas Machado, A. C., Gan, Y., Aparicio, O. M., & Rohs, R. (in revision). DNA Binding Specificity of all four Saccharomyces cerevisiae Forkhead Transcription Factors.*
 
 ## Setup / Installation
-It is best to install all required packaged into an isolated environment in order to avoid dependency conflicts. I recommend doing this using conda (https://anaconda.org/). 
+It is best to install all required packaged into an isolated environment in order to avoid dependency conflicts. I recommend doing this using conda/miniconda (https://anaconda.org/). 
 
 ```
-conda create -c conda-forge -c bioconda -c defaults -n multi-step-align python=3.7 bedtools bioconductor-selex r-stringr r-rjava
+conda create -c conda-forge -c bioconda -c defaults -n multi-step-align python=3.8 bedtools bioconductor-selex r-stringr r-rjava
 conda activate multi-step-align
 
 pip install .
+
+cd keras_genomics
+pip install .
+cd ..
 ```
 
 ## Data availability
@@ -23,7 +27,6 @@ This section details the steps used to align full-length SELEX-seq reads and cal
 
 We expect cores to be highly enriched within the SELEX-seq data, but not all enriched *k*-mers will cover the same region of the binding site. For this reason, we utilize a previously published tool called Top-Down Crawl<sup>2</sup> (TDC), which was developed for the alignment of quantitative binding data from experiments such as SELEX-seq. 
 
-
 We start with the alignment of 9-mers, since this is the longest *k*-mer in which a majority of unique *k*-mers occur at least 100 times. Long *k*-mers provide more positions to inform the alignment process, but increasing *k*-mers length decreases the signal-to-noise ratio of enrichment measurements and decreases coverage as described in the text<sup>1</sup>.
 
 <sup>2</sup> *Cooper, B. H., Chiu, T. P., & Rohs, R. (2022). Top-Down Crawl: a method for the ultra-rapid and motif-free alignment of sequences with associated binding metrics. Bioinformatics, 38(22), 5121-5123.*
@@ -33,10 +36,18 @@ First, we calculate the relative enrichment of 9-mers using a modified R script 
 https://bioconductor.org/packages/release/bioc/html/SELEX.html
 
 ```
-calculateEnrichment.R <R0 input> <R# input> <round #> <k length>
+countUnique.py Fkh1_R1.fastq.gz
+countUnique.py Fkh1_R2.fastq.gz
+countUnique.py Fkh1_Fkh2_R0.fastq.gz
+# Output: Fkh1_R1.tsv, Fkh1_R2.tsv, Fkh1_Fkh2_R0.tsv
 
-calculateEnrichment.R Fkh1_Fkh2_R0.fastq.gz Fkh1_R2.fastq.gz 2 9
+split.py Fkh1_Fkh2_R0.tsv
+# Output: Fkh1_Fkh2_R0_split1.tsv, Fkh1_Fkh2_R0_split2.tsv
+
+# Help: calculateEnrichment.py -h
+calculateEnrichment.py Fkh1_Fkh2_R0_split1.tsv Fkh1_Fkh2_R0_split2.tsv Fkh1_R2.tsv 2 9
 # Output: Fkh1_R2_k9.tsv
+# Can be repeated for Fkh2, Hcm1, and Fhl1
 ```
 
 The outputs are then aligned using TDC<sup>2</sup>, which is available for download through pip. 
@@ -45,11 +56,13 @@ The outputs are then aligned using TDC<sup>2</sup>, which is available for downl
 pip install TopDownCrawl
 TopDownCrawl Fkh1_R2_k9.tsv
 # Output: Fkh1_R2_k9_aligned.tsv
+# Can be repeated for Fkh2, Hcm1, and Fhl1
 ```
-
-Although our alignment includes 9 bp sequences, our final list of cores only need to cover enough bp to faithfully indicate true binding sites. Including additional bp limits the analysis of flanking positions which can no longer be varied across all 4 bases. Furthermore, additional bp increase the noise in flanking *ΔΔG/RT* measurements since they come from longer *k*-mers. For Fkh1, Fkh2, and Hcm1, we trim the 9-mer alignment to the 7 bp region covering the canonical binding site, GTAAACA. For Fhl1, we trim the alignment to the 6 bp region covering the consensus GACGCA. Unique sequences from this process make up the list of candidate cores for each TF.
+ 
+Although our alignment includes 9 bp sequences, our final list of cores only need to cover enough bp to faithfully indicate true binding sites. Including additional bp limits the analysis of flanking positions which can no longer be varied across all 4 bases. Furthermore, additional bp increase the noise in flanking *ΔΔG/RT* measurements since they come from longer *k*-mers. For Fkh1, Fkh2, and Hcm1, we trim the 9-mer alignment to the 7 bp region covering the most enriched sequence containing the canonical binding site, GTAAACA, or GACGCA for Fhl1. Unique sequences from this process make up the list of candidate cores for each TF.
 
 ```
+# Help: trimToConsensus.py -h
 trimToConsensus.py Fkh1_R2_k9_aligned.tsv GTAAACA
 trimToConsensus.py Fhl1_R2_k9_aligned.tsv GACGCA
 # Output: Fkh1_R2_k9_aligned_GTAAACA.tsv Fhl1_R2_k9_aligned_GACGCA.tsv
@@ -59,7 +72,8 @@ trimToConsensus.py Fhl1_R2_k9_aligned.tsv GACGCA
 To avoid complications resulting from combinatorial effects between multiple binding sites, we restrict our analysis to reads that only align to one core. This is also key to ensuring that observed flanking preferences are acting to modulate the given core rather than creating additional cores. However, this creates a trade-off between the number of cores we choose to analyze and the number of reads we can align. Therefore, rather than including the entire list of candidate cores in the alignment process, we must prioritize a subset of these sequences. This is done using a framework we call iterative prioritization as described in the manuscript<sup>1</sup>. The included script incorporates the 95% stopping rule as desribed in the text to only return cores which appear to be enriched above background. 
 
 ```
-prioritize.py config.yml Fkh1_R1.tsv Fkh1_R2_k9_aligned_GTAAACA.tsv
+# Help: prioritize.py -h
+prioritize.py Fkh1_Fkh2_R0_split1.tsv Fkh1_Fkh2_R0_split2.tsv Fkh1_R1.tsv 1 Fkh1_R2_k9_aligned_GTAAACA.tsv GAGTTCTACAGTCCGACGATCCAG TCCGTATCGCTCCTCCAATG 0.95
 # Output: Fkh1_R1_topcores.tsv
 ```
 

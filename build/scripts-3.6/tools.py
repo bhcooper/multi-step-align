@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!python
 
 import os
 import numpy as np
@@ -11,7 +11,6 @@ import yaml
 import pickle
 import regex as re
 
-from sklearn import metrics
 from collections import defaultdict
 from pandas import read_csv
 from pandas import DataFrame as df
@@ -146,6 +145,29 @@ def consolidate(seqs, enrichment):
             lookup[rc([key])[0]] = ave
     return np.array([lookup[seq] for seq in seqs])
 
+def markov(seqs, kmerCounts, order, shift, onRC):
+    counts1 = kmerCounts[order+1]
+    counts2 = kmerCounts[order]
+    if(onRC):
+        counts1 = counts1.iloc[:,::-1]
+        counts2 = counts2.iloc[:,::-1]
+        counts1.index = rc(counts1.index.values)
+        counts2.index = rc(counts2.index.values)
+    counts1 = counts1.iloc[:,shift:]
+    counts2 = counts2.iloc[:,shift:]
+
+    pred = np.array([[seq[j:j+order+1] for j in range(len(seq) - order)] for seq in seqs])
+    pred = np.array([counts1.loc[pred[:,j]].iloc[:,j].values for j in range(len(seqs[0]) - order)])
+    pred = np.product(pred, axis=0)
+    argfilter = pred > 0
+    if(order > 0):
+        div = np.array([[seq[j:j+order] for j in range(1,len(seq) - order)] for seq in seqs[argfilter]])
+        div = np.array([counts2.loc[div[:,j]].iloc[:,j].values for j in range(len(seqs[0]) - order-1)])
+        div = np.product(div, axis=0)
+        pred[argfilter] /= div
+    return pred
+
+
 def parallelAsync(target, ncpu, *args):
     if(ncpu == 0):
         ncpu = mp.cpu_count()
@@ -257,108 +279,3 @@ def encodeCores(coresX, seqs, corelookup, ladapter, llen, indices):
             x = corelookup[tuple(seqs[i][ladapter+j:llen+j])]
             if(x):
                 coresX[i,j] = x
-
-def getExpectedDist(seqs, order, trainKCounts):
-    counts1 = trainKCounts[order]
-    counts2 = trainKCounts[order-1]
-    counts1 = dict(zip(counts1.keys(), np.array(list(counts1.values())) / np.sum(list(counts1.values()))))
-    counts2 = dict(zip(counts2.keys(), np.array(list(counts2.values())) / np.sum(list(counts2.values()))))
-
-    pred = np.array([np.prod([counts1[seq[j:j+order+1]] for j in range(len(seq) - order)]) for seq in seqs])
-    argfilter = pred > 0
-    if(order > 0):
-        pred[argfilter] /= np.array([np.prod([counts2[seq[j:j+order]] for j in range(1,len(seq) - order)]) for seq in seqs])[argfilter]
-    return pred
-
-def getShiftExpectedDist(seqs, order, trainKCounts, shift, onRC):
-    counts1 = trainKCounts[order]
-    counts2 = trainKCounts[order-1]
-    if(onRC):
-        counts1 = counts1.iloc[:,::-1]
-        counts2 = counts2.iloc[:,::-1]
-        counts1.index = rc(counts1.index.values)
-        counts2.index = rc(counts2.index.values)
-    counts1 = counts1.iloc[:,shift:]
-    counts2 = counts2.iloc[:,shift:]
-
-    pred = np.array([[seq[j:j+order+1] for j in range(len(seq) - order)] for seq in seqs])
-    pred = np.array([counts1.loc[pred[:,j]].iloc[:,j].values for j in range(len(seqs[0]) - order)])
-    pred = np.product(pred, axis=0)
-    argfilter = pred > 0
-    if(order > 0):
-        div = np.array([[seq[j:j+order] for j in range(1,len(seq) - order)] for seq in seqs[argfilter]])
-        div = np.array([counts2.loc[div[:,j]].iloc[:,j].values for j in range(len(seqs[0]) - order-1)])
-        div = np.product(div, axis=0)
-        pred[argfilter] /= div
-    return pred
-
-def trainMarkov(r0trainfile, r0testfile, k):
-    r0train = []
-    r0test = []
-    trainKCounts = []
-    testKCounts = []
-
-    for k_ in range(1, k+1):
-        if(len(r0test) == 0):
-            print("Reading " + r0testfile + " . . .")
-            r0test, r0testcounts = readScores(r0testfile)
-        print("Counting k = " + str(k_))
-        testCounts = countKmers(r0test, r0testcounts, k_, ncpu=0)
-        if(np.min(list(testCounts.values())) < 100):
-            break
-        testKCounts += [testCounts]
-        if(len(r0train) == 0):
-            print("Reading " + r0trainfile + " . . .")
-            r0train, r0traincounts = readScores(r0trainfile)
-        trainCounts = countKmers(r0train, r0traincounts, k_, ncpu=0)
-        trainKCounts += [trainCounts]
-
-    mmkMax = 0
-    r2max = np.NINF
-    for k_ in range(1,len(testKCounts)+1):
-        print("Markov Model Order: " + str(k_ - 1))
-        test = testKCounts[-1]
-        EDist = getExpectedDist(list(test.keys()), k_-1, trainKCounts)
-        testDist = np.array(list(test.values()))
-        testDist /= np.sum(testDist)
-        r2 = np.sqrt(metrics.r2_score(testDist, EDist))
-        
-        print("R² = " + str(r2))
-        if(r2 > r2max):
-            mmkMax = k_
-            r2max = r2
-        else: 
-            break
-    
-    orderMax = mmkMax - 1
-    print("Best Markov Order: " + str(orderMax))
-    print("R² = " + str(r2max) + "\n")
-
-    # Use all counts in final model
-    for i in range(len(trainKCounts)):
-        for key, value in testKCounts[i].items():
-            trainKCounts[i][key] += value
-
-    return orderMax, trainKCounts
-
-# def markov(seqs, kmerCounts, order, shift, onRC):
-#     counts1 = kmerCounts[order+1]
-#     counts2 = kmerCounts[order]
-#     if(onRC):
-#         counts1 = counts1.iloc[:,::-1]
-#         counts2 = counts2.iloc[:,::-1]
-#         counts1.index = rc(counts1.index.values)
-#         counts2.index = rc(counts2.index.values)
-#     counts1 = counts1.iloc[:,shift:]
-#     counts2 = counts2.iloc[:,shift:]
-
-#     pred = np.array([[seq[j:j+order+1] for j in range(len(seq) - order)] for seq in seqs])
-#     pred = np.array([counts1.loc[pred[:,j]].iloc[:,j].values for j in range(len(seqs[0]) - order)])
-#     pred = np.product(pred, axis=0)
-#     argfilter = pred > 0
-#     if(order > 0):
-#         div = np.array([[seq[j:j+order] for j in range(1,len(seq) - order)] for seq in seqs[argfilter]])
-#         div = np.array([counts2.loc[div[:,j]].iloc[:,j].values for j in range(len(seqs[0]) - order-1)])
-#         div = np.product(div, axis=0)
-#         pred[argfilter] /= div
-#     return pred

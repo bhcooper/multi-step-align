@@ -5,11 +5,10 @@ multi_step_align_tools.egg-info/SOURCES.txt
 multi_step_align_tools.egg-info/dependency_links.txt
 multi_step_align_tools.egg-info/requires.txt
 multi_step_align_tools.egg-info/top_level.txt
-src/SELEXisolate.py
+src/DeepBindLayers.py
 src/alignToCores.py
 src/analyzeAlignedSELEX.py
-src/analyzeSELEXCounts.py
-src/calculateEnrichment.R
+src/calculateEnrichment.py
 src/countAlignToCores.py
 src/countFlanks.py
 src/countHits.py
@@ -17,8 +16,12 @@ src/countUnique.py
 src/getBed100.py
 src/getKmerDist.py
 src/getMaskedEnrichment.py
+src/predDeepBind.py
 src/predictFlanks.py
 src/predictObservationsWithBEESEM.py
 src/predictObservationsWithSELEX.py
+src/prioritize.py
 src/split.py
 src/tools.py
+src/trainDeepBind.py
+src/trimToConsensus.py

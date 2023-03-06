@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!python
 
 import sys
 import gzip
@@ -17,4 +17,4 @@ temp = np.array([unique, counts]).transpose()
 # Sort by counts, descending
 temp = temp[np.argsort(-counts)]
 
-np.savetxt("".join(sys.argv[1].split(".")[:-2]) + ".tsv", temp, delimiter="\t", header="Seq\tCount", comments="", fmt="%s")
+np.savetxt(sys.argv[1][:-9] + ".tsv", temp, delimiter="\t", header="Seq\tCount", comments="", fmt="%s")
