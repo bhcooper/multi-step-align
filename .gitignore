@@ -2,4 +2,4 @@ build
 example
 example_bak
 keras_genomics
-**/*.egg-info
+*.egg-info
