@@ -53,7 +53,6 @@ calculateEnrichment.py Fkh1_Fkh2_R0_split1.tsv Fkh1_Fkh2_R0_split2.tsv Fkh1_R2.t
 The outputs are then aligned using TDC<sup>2</sup>, which is available for download through pip. 
 
 ```
-pip install TopDownCrawl
 TopDownCrawl Fkh1_R2_k9.tsv
 # Output: Fkh1_R2_k9_aligned.tsv
 # Can be repeated for Fkh2, Hcm1, and Fhl1
@@ -73,14 +72,18 @@ To avoid complications resulting from combinatorial effects between multiple bin
 
 ```
 # Help: prioritize.py -h
-prioritize.py Fkh1_Fkh2_R0_split1.tsv Fkh1_Fkh2_R0_split2.tsv Fkh1_R1.tsv 1 Fkh1_R2_k9_aligned_GTAAACA.tsv GAGTTCTACAGTCCGACGATCCAG TCCGTATCGCTCCTCCAATG 0.95
+prioritize.py Fkh1_Fkh2_R0.tsv Fkh1_R1.tsv 1 Fkh1_R2_k9_aligned_GTAAACA.tsv GAGTTCTACAGTCCGACGATCCAG TCCGTATCGCTCCTCCAATG 0.95
+prioritize.py Fkh1_Fkh2_R0.tsv Fkh2_R1.tsv 1 Fkh2_R2_k9_aligned_GTAAACA.tsv GAGTTCTACAGTCCGACGATCCAG TCCGTATCGCTCCTCCAATG 0.95
+prioritize.py Hcm1_Fhl1_R0.tsv Hcm1_R1.tsv 1 Hcm1_R2_k9_aligned_GTAAACA.tsv GAGTTCTACAGTCCGACGATCCAG TCCGTATCGCTCCTCCAATG 0.95
+prioritize.py Hcm1_Fhl1_R0.tsv Fhl1_R1.tsv 1 Fhl1_R2_k9_aligned_GACGCA.tsv GAGTTCTACAGTCCGACGATCCAG TCCGTATCGCTCCTCCAATG 0.95
 # Output: Fkh1_R1_topcores.tsv
 ```
 
 In our case, we wanted to use a consistent list of cores accross all TFs tested, so we concatenated the lists of identified cores for each TF and removed duplicates. This can be done with the included helper script as shown below. 
 
 ```
-mergeCores.py Fkh1_R1_topcores.tsv Fkh2_R1_topcores.tsv Hcm1_R1_topcores.tsv Fhl1_R1_topcores.tsv
+# Help: mergeCores.py -h
+mergeCores.py *_topcores.tsv
 # Output: allcores.tsv
 ```
 
@@ -88,11 +91,13 @@ mergeCores.py Fkh1_R1_topcores.tsv Fkh2_R1_topcores.tsv Hcm1_R1_topcores.tsv Fhl
 At this point, full-length reads are aligned to our set of cores, discarding reads which do not align to exactly one core, considering adapter sequences up to 6 bp away upstream or downstream the variable region. Aligned sequences can then be used to calculate the the relative enrichment and *ΔΔG/RT* of differing cores and flanking bp. Several graphics are generated as well as described in the manuscript<sup>1</sup>. 
 
 ```
-alignToCores.py config.yml Fkh1_Fkh2_R0.tsv allcores.tsv
-alignToCores.py config.yml Fkh1_R1.tsv allcores.tsv
-alignToCores.py config.yml Fkh1_R2.tsv allcores.tsv
+# Help: alignToCores.py -h
+alignToCores.py Fkh1_Fkh2_R0.tsv allcores.tsv GAGTTCTACAGTCCGACGATCCAG TCCGTATCGCTCCTCCAATG
+alignToCores.py Fkh1_R1.tsv allcores.tsv GAGTTCTACAGTCCGACGATCCAG TCCGTATCGCTCCTCCAATG
+alignToCores.py Fkh1_R2.tsv allcores.tsv GAGTTCTACAGTCCGACGATCCAG TCCGTATCGCTCCTCCAATG
 
-analyzeAlignedSELEX.py config.yml Fkh1_Fkh2_R0_allcores.tsv Fkh1_R1_allcores.tsv 1 Fkh1_R2_allcores.tsv 2
+# Help: analyzeAlignedSELEX.py -h
+analyzeAlignedSELEX.py 7 Fkh1_Fkh2_R0_allcores.tsv Fkh1_R1_allcores.tsv 1 Fkh1_R2_allcores.tsv 2
 # Output folder: Fkh1_analysis
 ```
 

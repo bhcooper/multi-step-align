@@ -1,17 +1,27 @@
 #!/usr/bin/env python
 
-import sys
 import os
 import numpy as np
 import tools
-import pickle
 import matplotlib as mpl
 mpl.use('Agg')
 import matplotlib.pyplot as plt
 import scipy.cluster.hierarchy as shc
 import pandas as pd
 import seaborn as sns
-import pickle
+import argparse
+
+parser = argparse.ArgumentParser(description="Calculate the enrichment and ΔΔG/RT of differing cores and their flanking bp, then generate figures based on the results.")
+parser.add_argument("max_core_length", type=int, help="Length of the longest core used for alignment")
+parser.add_argument("R0_input")
+parser.add_argument("RN_input_and_cycle", nargs="+", help="Pairs of aligned reads along with their corresponsing cycle number.")
+
+args = parser.parse_args()
+
+corelen = args.max_core_length
+r0file = args.R0_input
+rnfiles = args.RN_input_and_cycle[::2]
+cycles = np.array(args.RN_input_and_cycle[1::2]).astype(float)
 
 imgext = '.png'
 # imgext = '.svg'
@@ -28,7 +38,7 @@ def encode1mers(seqs):
 def sumFlank(df):
     shift = df['shift'].iloc[0]
     left = (encode1mers(df['seq'].str[flankLen-shift:flankLen].values) * df['count'].values.reshape(-1,1)).sum(axis=0)
-    right = (encode1mers(df['seq'].str[flankLen+coreLen:flankLen+coreLen+flankLen-shift].values) * df['count'].values.reshape(-1,1)).sum(axis=0)
+    right = (encode1mers(df['seq'].str[flankLen+corelen:flankLen+corelen+flankLen-shift].values) * df['count'].values.reshape(-1,1)).sum(axis=0)
     return np.append(left, right)
 
 def anyZero(df):
@@ -41,34 +51,23 @@ def center(matrix):
     print("Bound set to +/- " + str(bound) + " for matplotlib's ""RdBu"" cmap")
     return (matrix + bound)/(2*bound)
 
-config = tools.loadConfig(sys.argv[1])
-ladapter = config['ladapter']
-radapter = config['radapter']
-ladapter_rc = tools.rc([radapter])[0]
-radapter_rc = tools.rc([ladapter])[0]
-markovOrder = config['markovOrder']
-coreLen = config['corelen']
 
 print("Reading input . . .")
-R0 = pd.read_csv(sys.argv[2], sep='\t')
-R1 =  pd.read_csv(sys.argv[3], sep='\t')
-R2 =  pd.read_csv(sys.argv[4], sep='\t')
-# R0 = pd.read_csv(sys.argv[2], sep='\t', nrows=1000000)
-# R1 =  pd.read_csv(sys.argv[3], sep='\t', nrows=1000000)
-# R2 =  pd.read_csv(sys.argv[4], sep='\t', nrows=1000000)
-R1['round'] = 1
-R2['round'] = 2
-RN = pd.concat([R1, R2])
+R0 = pd.read_csv(r0file, sep='\t')
+RNs = [pd.read_csv(f, sep='\t') for f in rnfiles]
+for i, cycle in enumerate(cycles):
+    RNs[i]['round'] = cycle
+RN = pd.concat(RNs)
 
 varLen = len(R0.iloc[0,0].replace("N", ""))
-flankLen = varLen-coreLen
+flankLen = varLen-corelen
 
-rndir = sys.argv[3].split("_")[0]
+rndir = rnfiles[0].split("_")[0]
 tools.mkdir(rndir + "_analysis")
 os.chdir(rndir + "_analysis")
 
-R0['core'] = R0.iloc[:,0].str.slice(flankLen, flankLen + coreLen)
-RN['core'] = RN.iloc[:,0].str.slice(flankLen, flankLen + coreLen)
+R0['core'] = R0.iloc[:,0].str.slice(flankLen, flankLen + corelen)
+RN['core'] = RN.iloc[:,0].str.slice(flankLen, flankLen + corelen)
 
 print("Grouping shifts . . .")
 R0groups = R0.groupby(['core', 'shift', 'strand'])

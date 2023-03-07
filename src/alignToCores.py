@@ -1,21 +1,28 @@
 #!/usr/bin/env python
 
-import sys
 import numpy as np
-import multiprocessing as mp
 import sharedmem as sm
-import regex as re
 import tools
+import argparse
+import pandas as pd
 
-from pandas import read_csv
+parser = argparse.ArgumentParser(description="aligns full-length reads to a given list of cores, discarding reads with multiple hits and hits which span the adapter")
+parser.add_argument("selected_input", help="Tab-delimited file containing counts for unique reads")
+parser.add_argument("cores", help="Newline separated list of cores with a header row")
+parser.add_argument("left_adapter", help="Fixed adapter 5' of the variable region")
+parser.add_argument("right_adapter", help="Fixed adapter 3' of the variable region")
 
-config = tools.loadConfig(sys.argv[1])
-ncpu = config['ncpu']
-ladapter = config['ladapter']
-radapter = config['radapter']   
+args = parser.parse_args()
+
+readfile = args.selected_input
+corefile = args.cores
+ladapter = args.left_adapter
+radapter = args.right_adapter
+
+ncpu = 0
 
 # Using top results from SELEXisolate.py
-ucores = read_csv(sys.argv[3], sep="\t")
+ucores = pd.read_csv(corefile, sep="\t")
 # ucores = ucores.iloc[:40,0]
 ucores = ucores.iloc[:,0]
 
@@ -48,7 +55,7 @@ radapterlen = len(radapter)
 
 print("Reading input . . .")
 
-seqs = read_csv(sys.argv[2], sep="\t")
+seqs = pd.read_csv(readfile, sep="\t")
 y = sm.copy(seqs.iloc[:,1].values)
 seqs = sm.copy(seqs.iloc[:,0].values)
 seqlen = len(seqs[0])
@@ -83,7 +90,7 @@ print("Aligning all seqs . . .")
 seqs = np.array(["N" * (nwindows - start - 1) + seq + "N" * (start) for seq,start in zip(seqs, starts)])
 
 print("Saving output . . .")
-queryname = sys.argv[3][:-4]
+queryname = corefile[:-4]
 strand = np.full(len(seqs), "+")
 strand[onRC] = "-"
-np.savetxt(sys.argv[2][:-4] + "_" + queryname + ".tsv", np.array([seqs, y, strand, starts]).transpose(), delimiter="\t", header="seq\tcount\tstrand\tshift", comments="", fmt="%s")
+np.savetxt(readfile[:-4] + "_" + queryname + ".tsv", np.array([seqs, y, strand, starts]).transpose(), delimiter="\t", header="seq\tcount\tstrand\tshift", comments="", fmt="%s")

@@ -2,6 +2,7 @@
 
 import os
 import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 mpl.use('Agg')
@@ -146,6 +147,14 @@ def consolidate(seqs, enrichment):
             lookup[rc([key])[0]] = ave
     return np.array([lookup[seq] for seq in seqs])
 
+def consolidatedf(df):
+    loc = df.index
+    df_rc = df.copy()
+    df_rc.index = rc(df.index)
+    df = pd.concat((df, df_rc))
+    df = df.groupby(df.index).mean()
+    return df.loc[loc]
+
 def parallelAsync(target, ncpu, *args):
     if(ncpu == 0):
         ncpu = mp.cpu_count()
@@ -252,11 +261,8 @@ def countHits(counts, seqs, ladapter, radapter, query, indices):
         counts[i] = len(matches)
 
 def encodeCores(coresX, seqs, corelookup, ladapter, llen, indices):
-    for i in indices:
-        for j in range(coresX.shape[1]):
-            x = corelookup[tuple(seqs[i][ladapter+j:llen+j])]
-            if(x):
-                coresX[i,j] = x
+    for j in range(coresX.shape[1]):
+        coresX[indices,j] = [corelookup[tuple(seq[ladapter+j:llen+j])] for seq in seqs[indices]]
 
 def getExpectedDist(seqs, order, trainKCounts):
     counts1 = trainKCounts[order]

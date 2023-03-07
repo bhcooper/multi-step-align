@@ -39,4 +39,11 @@ df = df.drop_duplicates()
 df = df[np.logical_not(df.iloc[:,0].str.contains("_"))]
 if(onRc):
     df.iloc[:,0] = tools.rc(df.iloc[:,0].values)
+
+ucores = []
+for core in df.iloc[:,0]:
+    if(not tools.rc([core])[0] in ucores):
+        ucores += [core]
+
+df = pd.DataFrame(list(ucores), columns=["candidates"])
 df.to_csv(f'{fname[:-4]}_{consensus}.tsv', sep='\t', index=False)

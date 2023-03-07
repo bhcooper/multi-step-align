@@ -30,6 +30,7 @@ setup(
         "regex",
         "sharedmem",
         "matplotlib",
+        "seaborn",
         "PyYAML",
         "scipy",
         "scikit-learn",
