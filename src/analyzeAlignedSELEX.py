@@ -15,6 +15,7 @@ parser = argparse.ArgumentParser(description="Calculate the enrichment and ΔΔG
 parser.add_argument("max_core_length", type=int, help="Length of the longest core used for alignment")
 parser.add_argument("R0_input")
 parser.add_argument("RN_input_and_cycle", nargs="+", help="Pairs of aligned reads along with their corresponsing cycle number.")
+parser.add_argument("-A", "--autoscale", action="store_true", default=False, help = "Predict how to rescale the enrichment of later inputs to match the scale of the first input given. Alternatively, the given cycle numbers will be used for rescaling.")
 
 args = parser.parse_args()
 
@@ -22,6 +23,7 @@ corelen = args.max_core_length
 r0file = args.R0_input
 rnfiles = args.RN_input_and_cycle[::2]
 cycles = np.array(args.RN_input_and_cycle[1::2]).astype(float)
+autoscale = args.autoscale
 
 imgext = '.png'
 # imgext = '.svg'
@@ -50,7 +52,6 @@ def center(matrix):
     bound = 0.75
     print("Bound set to +/- " + str(bound) + " for matplotlib's ""RdBu"" cmap")
     return (matrix + bound)/(2*bound)
-
 
 print("Reading input . . .")
 R0 = pd.read_csv(r0file, sep='\t')
@@ -81,12 +82,21 @@ maxCore = coreE.groupby(level=('core')).mean().idxmax()
 coreE = coreE.divide(coreE.loc[maxCore])
 coreE = coreE.reorder_levels(['core', 'shift', 'strand', 'round'])
 
-R2filter = coreE.index.get_level_values('round') == 2
-scalingFactor = np.log(coreE[R2filter]).mean()/np.log(coreE[~R2filter]).mean()
+scalingFactors = None
+if(autoscale):
+    logcoreE = np.log(coreE)
+    scalingFactors = logcoreE.groupby("round").mean()
+    scalingFactors = scalingFactors / scalingFactors.loc[cycles[0]]
+else:
+    scalingFactors = pd.Series(cycles, index=pd.Index(cycles, name='round'))
+
+# R2filter = coreE.index.get_level_values('round') == 2
+# scalingFactor = np.log(coreE[R2filter]).mean()/np.log(coreE[~R2filter]).mean()
 # scalingFactor = 2
-print(f'Scaling Factor: {"%.2f" % scalingFactor}')
+# print(f'Scaling Factor: {"%.2f" % scalingFactor}')
 coreE = -np.log(coreE)
-coreE[R2filter] = coreE[R2filter]/scalingFactor
+# coreE[R2filter] = coreE[R2filter]/scalingFactor
+coreE = coreE/scalingFactors
 
 print("Calculating flanking enrichment . . .")
 R0flanks = R0groups.apply(sumFlank)
@@ -135,7 +145,7 @@ RNflanks.columns = cols
 flankE = RNflanks.divide(R0flanks)
 
 flankE = flankE.loc[ucores]
-R2filter = flankE.index.get_level_values('round') == 2
+# R2filter = flankE.index.get_level_values('round') == 2
 flankE = flankE.replace(0, np.nan)
 # Nullify positions affected by nan
 flankE[flankE.isna().groupby(axis=1, level='pos').any()] = np.nan
@@ -146,7 +156,8 @@ flankE[flankE.isna().groupby(axis=1, level='pos').any()] = np.nan
 # flankE = flankE.divide(maxcols, axis=0, level=0)
 
 flankE = -np.log(flankE)
-flankE[R2filter] = flankE[R2filter]/scalingFactor
+flankE = flankE.divide(scalingFactors, level='round', axis='index')
+# flankE[R2filter] = flankE[R2filter]/scalingFactor
 flankE = flankE.subtract(flankE.groupby(axis=1, level=0).mean(), axis=0, level=0)
 
 flankE.name = "ΔΔG/RT"

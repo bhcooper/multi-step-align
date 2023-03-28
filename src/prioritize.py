@@ -8,7 +8,7 @@ import argparse
 from collections import defaultdict
 
 parser = argparse.ArgumentParser(description="Sorts candidate cores based on an interative framework in which reads containing identified cores are iteratively removed so that the enrichment of one core is independent of another.")
-parser.add_argument('R0_input', help='Counts for unique reads from the initial library')
+parser.add_argument('R0_input', help='Counts for unique reads from the initial library, split for Markov model training/testing')
 parser.add_argument("selected_input", help="Tab-delimited file containing counts for unique reads")
 parser.add_argument('SELEX_round', type=int, help='Number of rounds of selection between input and R0')
 parser.add_argument("candidate_cores", help="List of candidate cores to be prioritized")
@@ -42,10 +42,14 @@ ncpu = 0
 
 print("Reading input . . .")
 
-r0seqs, r0y = tools.readScores(r0file)
-all7, counts7 = np.unique([s[:7] for s in r0seqs], return_counts=True)
-all7 = {k:v for k, v in zip(all7, counts7)}
-r0seqs = sm.copy(np.array([ladapter + s + radapter for s in r0seqs]))
+r0seqs, r0y= tools.readScores(r0file)
+r0kmerCounts = []
+for i in range(1, len(r0seqs[0])):
+    kmerCount, minCount = tools.getKmerDist(r0seqs, r0y, i)
+    if minCount < 100:
+        break
+    r0kmerCounts += [kmerCount]
+markovOrder = len(r0kmerCounts) - 1
 
 rnseqs, rny = tools.readScores(rnfile)
 rnseqs = sm.copy(np.array([ladapter + s + radapter for s in rnseqs]))
@@ -70,15 +74,17 @@ corecounts = np.apply_along_axis(np.bincount, axis=0, arr=coresX[:,varcols], wei
 corecounts = corecounts[1:]
 corecounts = pd.DataFrame(corecounts, index=ucores[1:])
 
-corecounts0 = np.apply_along_axis(np.bincount, axis=0, arr=cores0[:,varcols], weights = r0y, minlength=len(ucores))
-corecounts0 = corecounts0[1:]
-corecounts0 = pd.DataFrame(corecounts0, index=ucores[1:])
+
+Ecounts = sm.empty(corecounts.shape)
+for i in range(Ecounts.shape[1]):
+    Ecounts[:,i] = tools.getShiftExpectedDist(ucores[1:], r0kmerCounts, markovOrder, i, False)
+Ecounts = pd.DataFrame(Ecounts, index=ucores[1:])
 
 tops = []
 nums = []
 maxE = None
 while(len(coresX) > 0):
-    coreE = (corecounts/total)/(corecounts0/total0)
+    coreE = (corecounts/total)/(Ecounts)
     coreE = coreE.mean(axis=1, skipna=True).to_frame()
     coreE = tools.consolidatedf(coreE)
     coretop = coreE.idxmax(skipna=True)[0]
@@ -108,19 +114,12 @@ while(len(coresX) > 0):
     hitcounts = hitcounts[1:]
     hitcounts = pd.DataFrame(hitcounts, index=ucores[1:])
 
-    # hitcounts0 = np.apply_along_axis(np.bincount, axis=0, arr=cores0[hits0][:,varcols], weights = r0y[hits0], minlength=len(ucores))
-    # hitcounts0 = hitcounts0[1:]
-    # hitcounts0 = pd.DataFrame(hitcounts0, index=ucores[1:])
-
     corecounts -= hitcounts
-    # corecounts0 -= hitcounts0
     coresX = coresX[~hits]
-    # cores0 = cores0[~hits0]
     rny = rny[~hits]
-    # r0y = r0y[~hits0]
 
     corecounts = corecounts.drop(index = [coretop, coretop_rc])
-    corecounts0 = corecounts0.drop(index = [coretop, coretop_rc])
+    Ecounts = Ecounts.drop(index = [coretop, coretop_rc])
 
 print("Coverage: %.2f" % ((total-sum(rny))/total))
 np.savetxt(rnfile[:-4] + "_topcores.tsv",np.array(tops)[:,np.newaxis], fmt="%s", delimiter="\t", header="core", comments="")

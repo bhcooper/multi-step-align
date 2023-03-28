@@ -97,7 +97,7 @@ alignToCores.py Fkh1_R1.tsv allcores.tsv GAGTTCTACAGTCCGACGATCCAG TCCGTATCGCTCCT
 alignToCores.py Fkh1_R2.tsv allcores.tsv GAGTTCTACAGTCCGACGATCCAG TCCGTATCGCTCCTCCAATG
 
 # Help: analyzeAlignedSELEX.py -h
-analyzeAlignedSELEX.py 7 Fkh1_Fkh2_R0_allcores.tsv Fkh1_R1_allcores.tsv 1 Fkh1_R2_allcores.tsv 2
+analyzeAlignedSELEX.py 7 Fkh1_Fkh2_R0_allcores.tsv Fkh1_R1_allcores.tsv 1 Fkh1_R2_allcores.tsv 2 --autoscale
 # Output folder: Fkh1_analysis
 ```
 

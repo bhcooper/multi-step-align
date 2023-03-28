@@ -276,16 +276,18 @@ def getExpectedDist(seqs, order, trainKCounts):
         pred[argfilter] /= np.array([np.prod([counts2[seq[j:j+order]] for j in range(1,len(seq) - order)]) for seq in seqs])[argfilter]
     return pred
 
-def getShiftExpectedDist(seqs, order, trainKCounts, shift, onRC):
+def getShiftExpectedDist(seqs, trainKCounts, order, shift, onRC):
     counts1 = trainKCounts[order]
     counts2 = trainKCounts[order-1]
     if(onRC):
         counts1 = counts1.iloc[:,::-1]
-        counts2 = counts2.iloc[:,::-1]
         counts1.index = rc(counts1.index.values)
-        counts2.index = rc(counts2.index.values)
+        if(order > 0):
+            counts2 = counts2.iloc[:,::-1]
+            counts2.index = rc(counts2.index.values)
     counts1 = counts1.iloc[:,shift:]
-    counts2 = counts2.iloc[:,shift:]
+    if(order > 0):
+        counts2 = counts2.iloc[:,shift:]
 
     pred = np.array([[seq[j:j+order+1] for j in range(len(seq) - order)] for seq in seqs])
     pred = np.array([counts1.loc[pred[:,j]].iloc[:,j].values for j in range(len(seqs[0]) - order)])
@@ -327,7 +329,7 @@ def trainMarkov(r0trainfile, r0testfile, k):
         EDist = getExpectedDist(list(test.keys()), k_-1, trainKCounts)
         testDist = np.array(list(test.values()))
         testDist /= np.sum(testDist)
-        r2 = np.sqrt(metrics.r2_score(testDist, EDist))
+        r2 = metrics.r2_score(testDist, EDist)
         
         print("R² = " + str(r2))
         if(r2 > r2max):
@@ -347,24 +349,3 @@ def trainMarkov(r0trainfile, r0testfile, k):
 
     return orderMax, trainKCounts
 
-# def markov(seqs, kmerCounts, order, shift, onRC):
-#     counts1 = kmerCounts[order+1]
-#     counts2 = kmerCounts[order]
-#     if(onRC):
-#         counts1 = counts1.iloc[:,::-1]
-#         counts2 = counts2.iloc[:,::-1]
-#         counts1.index = rc(counts1.index.values)
-#         counts2.index = rc(counts2.index.values)
-#     counts1 = counts1.iloc[:,shift:]
-#     counts2 = counts2.iloc[:,shift:]
-
-#     pred = np.array([[seq[j:j+order+1] for j in range(len(seq) - order)] for seq in seqs])
-#     pred = np.array([counts1.loc[pred[:,j]].iloc[:,j].values for j in range(len(seqs[0]) - order)])
-#     pred = np.product(pred, axis=0)
-#     argfilter = pred > 0
-#     if(order > 0):
-#         div = np.array([[seq[j:j+order] for j in range(1,len(seq) - order)] for seq in seqs[argfilter]])
-#         div = np.array([counts2.loc[div[:,j]].iloc[:,j].values for j in range(len(seqs[0]) - order-1)])
-#         div = np.product(div, axis=0)
-#         pred[argfilter] /= div
-#     return pred
