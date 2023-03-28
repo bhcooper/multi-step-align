@@ -97,7 +97,8 @@ alignToCores.py Fkh1_R1.tsv allcores.tsv GAGTTCTACAGTCCGACGATCCAG TCCGTATCGCTCCT
 alignToCores.py Fkh1_R2.tsv allcores.tsv GAGTTCTACAGTCCGACGATCCAG TCCGTATCGCTCCTCCAATG
 
 # Help: analyzeAlignedSELEX.py -h
-analyzeAlignedSELEX.py 7 Fkh1_Fkh2_R0_allcores.tsv Fkh1_R1_allcores.tsv 1 Fkh1_R2_allcores.tsv 2 --autoscale
+# Bound was set to ensure a consistent color scale accross datasets
+analyzeAlignedSELEX.py 7 Fkh1_Fkh2_R0_allcores.tsv Fkh1_R1_allcores.tsv 1 Fkh1_R2_allcores.tsv 2 --autoscale --bound 0.75
 # Output folder: Fkh1_analysis
 ```
 
@@ -152,8 +153,8 @@ countFlanks.py Fkh1_combined_100_merged.fa GTAAACA 4 2
 countFlanks.py sacCer3.fa GTAAACA 4 2
 # Output: Fkh1_combined_100_merged_GTAAACA_-4_+2.tsv, sacCer3_GTAAACA_-4_+2.tsv
 
-# Fkh1_edge_ddG.tsv in Fkh1_analysis folder
-predictFlanks.py Fkh1_combined_100_merged_GTAAACA_-4_+2.tsv sacCer3_GTAAACA_-4_+2.tsv Fkh1_edge_ddG.tsv GTAAACA BEESEM_flanks.txt
+# Fkh1_flank_ddG.tsv in Fkh1_analysis folder
+predictFlanks.py Fkh1_combined_100_merged_GTAAACA_-4_+2.tsv sacCer3_GTAAACA_-4_+2.tsv Fkh1_flank_ddG.tsv GTAAACA BEESEM_flanks.txt
 # Output: predFlanks_GTAAACA.png, metrics printed to STDOUT
 ```
 
@@ -206,7 +207,7 @@ calculateEnrichmentNoMin.R Fkh1_Fkh2_R0.fastq.gz Fkh1_R2.fastq.gz 2 13
 trainDeepBind.py Fkh1_R2_k13_noMin.tsv
 # Output: trained_cnn.h5, trained_minMax.pkl
 
-predDeepBind.py trained_cnn.h5 traind_minMax.pkl Fkh1_core_ddG.tsv Fkh1_edge_ddG.tsv
+predDeepBind.py trained_cnn.h5 traind_minMax.pkl Fkh1_core_ddG.tsv Fkh1_flank_ddG.tsv
 # Output: DeepBind_MLR.png
 ```
 

@@ -16,7 +16,7 @@ parser.add_argument("max_core_length", type=int, help="Length of the longest cor
 parser.add_argument("R0_input")
 parser.add_argument("RN_input_and_cycle", nargs="+", help="Pairs of aligned reads along with their corresponsing cycle number.")
 parser.add_argument("-A", "--autoscale", action="store_true", default=False, help = "Predict how to rescale the enrichment of later inputs to match the scale of the first input given. Alternatively, the given cycle numbers will be used for rescaling.")
-
+parser.add_argument("-B", "--bounds", default=None, type=float, required=False, help='Specifies the color bar bounds ± the mean for plotting the ΔΔG/RT of flanking positions. Helpful for consistency accross comparisons.')
 args = parser.parse_args()
 
 corelen = args.max_core_length
@@ -24,6 +24,11 @@ r0file = args.R0_input
 rnfiles = args.RN_input_and_cycle[::2]
 cycles = np.array(args.RN_input_and_cycle[1::2]).astype(float)
 autoscale = args.autoscale
+flankBound = args.bounds
+
+labelspace = 0.9
+dendsize = 0.9
+cbarheight = 2.4
 
 imgext = '.png'
 # imgext = '.svg'
@@ -46,11 +51,11 @@ def sumFlank(df):
 def anyZero(df):
     return np.any(np.vstack(df) == 0)
 
-def center(matrix):
-    bound = np.nanmax(np.abs(matrix))
-    print("abs max: " + str(bound))
-    bound = 0.75
-    print("Bound set to +/- " + str(bound) + " for matplotlib's ""RdBu"" cmap")
+def center(matrix, bound):
+    # bound = np.nanmax(np.abs(matrix))
+    # print("abs max: " + str(bound))
+    # bound = 0.75
+    # print("Bound set to +/- " + str(bound) + " for matplotlib's ""RdBu"" cmap")
     return (matrix + bound)/(2*bound)
 
 print("Reading input . . .")
@@ -87,15 +92,13 @@ if(autoscale):
     logcoreE = np.log(coreE)
     scalingFactors = logcoreE.groupby("round").mean()
     scalingFactors = scalingFactors / scalingFactors.loc[cycles[0]]
+    scalingFactors.name = 'Scaling Factors'
 else:
-    scalingFactors = pd.Series(cycles, index=pd.Index(cycles, name='round'))
+    scalingFactors = pd.Series(cycles, index=pd.Index(cycles, name='round'), name='Scaling Factors')
 
-# R2filter = coreE.index.get_level_values('round') == 2
-# scalingFactor = np.log(coreE[R2filter]).mean()/np.log(coreE[~R2filter]).mean()
-# scalingFactor = 2
-# print(f'Scaling Factor: {"%.2f" % scalingFactor}')
+print(scalingFactors)
+
 coreE = -np.log(coreE)
-# coreE[R2filter] = coreE[R2filter]/scalingFactor
 coreE = coreE/scalingFactors
 
 print("Calculating flanking enrichment . . .")
@@ -104,8 +107,6 @@ RNflanks = RNgroups.apply(sumFlank)
 
 # Remove a core if no information at a flanking position (could be from pseudopalindomic core)
 argfilter = RNflanks.groupby(level=('core', 'shift', 'strand')).agg(anyZero)
-# print("Removed Shifts:")
-# print(argfilter[argfilter==True])
 coreE = coreE[~argfilter]
 argfilter = coreE.groupby(level='core').count() < flankLen
 print("Removed Cores:")
@@ -119,10 +120,7 @@ IQR = Q3 - Q1
 coreE = coreE[(coreE - (Q3 + IQR * 1.5)) <= 0]
 coreE = coreE[(coreE - (Q1 - IQR * 1.5)) >= 0]
 
-# Print outliers
-# print(coreE[(coreE - (Q3 + IQR * 1.5)) > 0])
-# print(coreE[(coreE - (Q1 - IQR * 1.5)) < 0])
-
+# Calculate core means and 95% confidence intervals
 coreE_mean = coreE.groupby(level='core').mean().sort_values()
 coreE.name = "ΔΔG/RT"
 ucores = coreE_mean.index
@@ -141,41 +139,30 @@ cols = pd.MultiIndex.from_tuples([(int(c/4), c%4) for c in R0flanks.columns], na
 R0flanks.columns = cols
 RNflanks.columns = cols
 
-# R0flanks = R0flanks.sum(axis=0, level="strand")
 flankE = RNflanks.divide(R0flanks)
 
 flankE = flankE.loc[ucores]
-# R2filter = flankE.index.get_level_values('round') == 2
 flankE = flankE.replace(0, np.nan)
+
 # Nullify positions affected by nan
 flankE[flankE.isna().groupby(axis=1, level='pos').any()] = np.nan
 
-# Normalize each position against max per position
-# maxcols = flankE[flankE.mean(axis=0).groupby(level=0).idxmax()]
-# maxcols.columns = maxcols.columns.droplevel('base')
-# flankE = flankE.divide(maxcols, axis=0, level=0)
-
+# Calculate enrichment and center
 flankE = -np.log(flankE)
 flankE = flankE.divide(scalingFactors, level='round', axis='index')
-# flankE[R2filter] = flankE[R2filter]/scalingFactor
 flankE = flankE.subtract(flankE.groupby(axis=1, level=0).mean(), axis=0, level=0)
 
 flankE.name = "ΔΔG/RT"
 flankE_mean = flankE.groupby(level='core').mean()
 flankE_CI = flankE.groupby(level='core').std() * 1.96 / np.sqrt(np.isfinite(flankE).groupby(level='core').sum())
 
-# Output core info
+# Provide outputs based on the core enrichments
 fig, ax = plt.subplots(figsize=(5, 15))
 ax = sns.violinplot(x=coreE.name, y='core', data=coreE[ucores[1:]].reset_index(), linewidth = 0, color="C0", cut=0, inner='stick')
-# ax = sns.violinplot(x=coreE.name, y='core', data=coreE.xs(1, level='round').reset_index(), linewidth = 0, color="lightskyblue", cut=0)
-# ax = sns.violinplot(x=coreE.name, y='core', data=coreE.xs(2, level='round').reset_index(), linewidth = 0, color="lightcoral", cut=0)
 plt.setp(ax.collections, alpha=0.4)
 ax.set_yticklabels(list(ucores[1:]), rotation="horizontal", fontname="Courier New", fontsize=12)
 ax.errorbar(y=np.arange(len(coreE_mean[ucores[1:]])), x = coreE_mean[ucores[1:]], xerr=coreE_CI[ucores[1:]], capsize=3, linewidth=0, elinewidth=1.0, ecolor="C0")
 ax.set_ylim(len(ucores)-1, -1)
-# with open(rndir + "_core_ddG.pkl", 'wb') as f:
-    # pickle.dump([coreE, coreE_mean, coreE_CI, ucores, rndir], f)
-
 plt.savefig(rndir + "_core_ddG" + imgext, bbox_inches="tight", dpi=600)
 plt.close()
 
@@ -184,89 +171,59 @@ coreE_mean['CI'] = coreE_CI
 coreE_mean.to_csv(rndir + "_core_ddG.tsv", sep='\t', header='ΔΔG/RT\t95%_CI')
 np.exp(-coreE_mean.iloc[:,0]).to_csv(rndir + "_core_RelE.tsv", sep='\t', header='RelE')
 
-# Output flank info
+# Provide outputs based on the flank enrichments
+
+# flankBound = 0.75
+if(not flankBound):
+    flankBound = np.ceil((np.nanmax(np.abs(flankE_mean.loc[ucores].values))*100))/100
+
 posLabels = ["-" + str(s) + "\n" + b if b == "C" else "\n" + b for b, s in zip(tools.N*flankLen, np.repeat(np.arange(flankLen)[::-1] + 1, 4))]
 posLabels += ["+" + str(s) + "\n" + b if b == "C" else "\n" + b for b, s in zip(tools.N*flankLen, np.repeat(np.arange(flankLen) + 1, 4))]
-print("Max edge accross all cores")
-tools.plotGrid(rndir + "_edge_ddG" + imgext, center(flankE_mean.loc[ucores].values), xticks=posLabels, yticks=ucores, gridstridex=4, gridstridey=None, vmin=-0.25, vmax=1.25, vline=flankLen*4-0.5, cmap="RdBu_r")
-print("Max edge for best cores")
+
+plotmat = center(flankE_mean.loc[ucores].values, flankBound)
+figsize = np.array(plotmat.transpose().shape)/4
+fig = plt.figure(figsize=figsize)
+ax1 = fig.add_axes((0, 0, 1, 1))
+ax2 = fig.add_axes((1 + 1.4/figsize[0], 0.6/figsize[1], 0.3/figsize[0], cbarheight/figsize[1]))
+tools.plotGrid(None, plotmat[::-1], ax=ax1, xticks=posLabels, yticks=ucores[::-1], gridstridex=4, gridstridey=None, vmin=0, vmax=1, vline=flankLen*4-0.5, cmap="RdBu_r")
+plt.colorbar(mpl.cm.ScalarMappable(cmap='RdBu'), cax=ax2, pad=0, ticks=[0, 1])
+ax2.set_yticklabels([-flankBound, flankBound], fontsize=18)
+ax2.set_ylabel("$\it{-ΔΔG/RT}$", fontsize=18, rotation=270, labelpad=4, fontweight='bold')
+plt.savefig(rndir + "_flank_ddG" + imgext, bbox_inches="tight", dpi=600)
+plt.close()
+
+
 ref = ucores[0]
-# ref = "CGAAACA"
-colmean = center(flankE.loc[ref]).mean().values.reshape(1, -1)
-flankExample = np.concatenate((center(flankE.loc[ref].values), colmean), axis=0)
-yticks = [f'R{t[2]}{t[1]}' for t in flankE.loc[ref].index.tolist()]
+colmean = center(flankE.loc[ref], flankBound).mean().values.reshape(1, -1)
+flankExample = np.concatenate((center(flankE.loc[ref].values, flankBound), colmean), axis=0)
+yticks = [f'R{int(t[2])}{t[1]}' for t in flankE.loc[ref].index.tolist()]
 yticks += ["Mean"]
-tools.plotGrid(rndir + "_edge_ddG_" +   ref + "_left" + imgext, flankExample[:,12:36], xticks=posLabels[12:36], yticks = yticks, gridstridex=4, gridstridey=len(flankExample)-1,  vmin=-0.25, vmax=1.25, vline=(flankLen-3)*4-0.5, cmap="RdBu_r")
-tools.plotGrid(rndir + "_edge_ddG_" + ref + "_right" + imgext, flankExample[:,36:-12], xticks=posLabels[36:-12], gridstridex=4, gridstridey=len(flankExample)-1,  vmin=-0.25, vmax=1.25, vline=-0.5, cmap="RdBu_r")
-# tools.plotGrid(rndir + "_edge_ddG_allShifts.png", center(flankE.loc[ucores[0]].xs("+", level="strand").values[:,4:-4]), xticks=posLabels[4:-4], gridstridex=4, gridstridey=None,  vmin=-0.25, vmax=1.25, vline=flankLen*4-0.5-4, cmap="RdBu_r")
-
-ltrim = 3
-rtrim = 3
-
-argsort = np.argsort(ucores)
-left = center(flankE_mean.loc[ucores[argsort]].values[:,ltrim*4:flankLen*4])
-xticks = posLabels[ltrim*4:flankLen*4]
-figsize = np.array(left.transpose().shape)/4
-figsize[0] /= 0.92
-tools.plotGrid(rndir + "_edges_left_lexi" + imgext, left, xticks=xticks, yticks=[u.replace('-', '') for u in ucores[argsort]], gridstridex=4, gridstridey=len(ucores), vmin=-0.25, vmax=1.25, vline=(flankLen-ltrim)*4-0.5, cmap="RdBu_r")
-
-argsort = np.argsort([u[::-1].replace('-', '') for u in ucores])
-right = center(flankE_mean.loc[ucores[argsort]].values[:,flankLen*4:-rtrim*4])
-xticks = posLabels[flankLen*4:-rtrim*4]
-figsize = np.array(right.transpose().shape)/4
-figsize[0] /= 0.92
-tools.plotGrid(rndir + "_edges_right_lexi" + imgext, right, xticks=xticks, yticks=[u.replace('-', '') for u in ucores[argsort]], gridstridex=4, gridstridey=len(ucores), vmin=-0.25, vmax=1.25, vline=-0.5, cmap="RdBu_r", tick_left=True)
-
-# Output flank contributions
+plotmat = flankExample[:,:36]
+figsize = np.array(plotmat.transpose().shape)/4
+fig = plt.figure(figsize=figsize)
+ax1 = fig.add_axes((0, 0, 1, 1))
+ax2 = fig.add_axes((1+0.7/figsize[0], 0, 1, 1))
+ax3 = fig.add_axes((2+1.0/figsize[0], 0.6/figsize[1], 0.3/figsize[0], cbarheight/figsize[1]))
+tools.plotGrid(None, plotmat[::-1], ax=ax1, xticks=posLabels[:36], yticks = yticks[::-1], gridstridex=4,  vmin=0, vmax=1, vline=(flankLen)*4-0.5, cmap="RdBu_r")
+ax1.set_yticks([-0.5, 0.5, len(plotmat)-0.5], minor=True)
+plotmat = flankExample[:,36:]
+tools.plotGrid(None, plotmat[::-1], ax=ax2, xticks=posLabels[36:], gridstridex=4,  vmin=-0.25, vmax=1.25, vline=-0.5, cmap="RdBu_r")
+ax2.set_yticks([-0.5, 0.5, len(plotmat)-0.5], minor=True)
+plt.colorbar(mpl.cm.ScalarMappable(cmap='RdBu'), cax=ax3, pad=0, ticks=[0, 1])
+ax3.set_yticklabels([-flankBound, flankBound], fontsize=18)
+ax3.set_ylabel("$\it{-ΔΔG/RT}$", fontsize=18, rotation=270, labelpad=4, fontweight='bold')
+plt.savefig(rndir + "_flank_ddG_" + ref + imgext, bbox_inches="tight", dpi=600)
+plt.close()
 
 flankPos = [b + " [-" + str(s) + "]" for b, s in zip(tools.N*flankLen, np.repeat(np.arange(flankLen)[::-1] + 1, 4))]
 flankPos += [b + " [+" + str(s) + "]" for b, s in zip(tools.N*flankLen, np.repeat(np.arange(flankLen) + 1, 4))]
 flankE_mean_relmax = flankE_mean - flankE_mean.groupby(axis=1, level='pos').min()
-flankE_mean_relmax.to_csv(rndir + "_edge_ddG.tsv", sep='\t', header=flankPos)
-flankE_CI.to_csv(rndir + "_edge_ddG_CI.tsv", sep='\t', header=flankPos)
+flankE_mean_relmax.to_csv(rndir + "_flank_ddG.tsv", sep='\t', header=flankPos)
+flankE_CI.to_csv(rndir + "_flank_ddG_CI.tsv", sep='\t', header=flankPos)
 
-# Calculate maximum contributions (A little noisy, maybe better to try range of average only)
-# flankRange = flankE_mean.mean()
-# flankRange = flankRange.groupby(level='pos').max() - flankRange.groupby(level='pos').min()
-# fig, ax = plt.subplots(figsize=(8,5))
-# width=0.7
-# x = np.arange(len(flankRange))
-# ax.bar(x, flankRange, width, label=rndir)
-# # ax.errorbar(x, flankRange_mean, flankRange_var, capsize=2, linewidth=0, elinewidth=1, ecolor="black")
-# xlabels = ["-" + str(x) for x in np.arange(1,flankLen+1)[::-1]] + ["+" + str(x) for x in np.arange(1,flankLen+1)]
-# ax.set_xticks(x)
-# ax.set_xticklabels(xlabels, fontsize=10)
-# outdata = np.array([xlabels, flankRange]).transpose()
-# tools.saveTable(rndir + "_edge_range.tsv", outdata, header="position\trange")
-# plt.savefig(rndir + "_edge_range" + imgext, bbox_inches="tight", dpi=600)
-# plt.close()
-
-# # Calculate maximum contributions (A little noisy, maybe better to try range of average only)
-# argmax = flankE_mean.mean(axis=0).groupby(level='pos').idxmax()
-# argmax = pd.MultiIndex.from_tuples(argmax, names = ['pos', 'base'])
-# argmin = flankE_mean.mean(axis=0).groupby(level='pos').idxmin()
-# argmin = pd.MultiIndex.from_tuples(argmin, names = ['pos', 'base'])
-# flankRange = flankE[argmax].droplevel(level='base', axis=1) - flankE[argmin].droplevel(level='base', axis=1)
-# flankRange_mean = flankRange.mean()
-# flankRange_var = flankRange.std() ** 2
-# fig, ax = plt.subplots(figsize=(8,5))
-# width=0.7
-# x = np.arange(len(flankRange_mean))
-# ax.bar(x, flankRange_mean, width, label=rndir)
-# ax.errorbar(x, flankRange_mean, flankRange_var, capsize=2, linewidth=0, elinewidth=1, ecolor="black")
-# xlabels = ["-" + str(x) for x in np.arange(1,flankLen+1)[::-1]] + ["+" + str(x) for x in np.arange(1,flankLen+1)]
-# ax.set_xticks(x)
-# ax.set_xticklabels(xlabels, fontsize=10)
-# outdata = np.array([xlabels, flankRange_mean, flankRange_var]).transpose()
-# tools.saveTable(rndir + "_edge_range.tsv", outdata, header="position\trange\tvariance")
-# plt.savefig(rndir + "_edge_range" + imgext, bbox_inches="tight", dpi=600)
-# plt.close()
-
-# # Calculate maximum contributions (Low noise, shuffled bases not counted, only span)
 maxFlanks = flankE.groupby(axis=1, level='pos').max() - flankE.groupby(axis=1, level='pos').min()
 maxFlanks_mean = maxFlanks.mean()
 maxFlanks_var = maxFlanks.std() ** 2
-# maxFlanks_CI = maxFlanks.std() * 1.96 / np.sqrt(np.sum(np.isfinite(maxFlanks), axis=0))
 fig, ax = plt.subplots(figsize=(8,5))
 width=0.7
 x = np.arange(len(maxFlanks_mean))
@@ -276,41 +233,40 @@ xlabels = ["-" + str(x) for x in np.arange(1,flankLen+1)[::-1]] + ["+" + str(x) 
 ax.set_xticks(x)
 ax.set_xticklabels(xlabels, fontsize=10)
 outdata = np.array([xlabels, maxFlanks_mean, maxFlanks_var]).transpose()
-tools.saveTable(rndir + "_edge_range.tsv", outdata, header="position\trange\tvariance")
-plt.savefig(rndir + "_edge_range" + imgext, bbox_inches="tight", dpi=600)
+tools.saveTable(rndir + "_flank_range.tsv", outdata, header="position\trange\tvariance")
+plt.savefig(rndir + "_flank_range" + imgext, bbox_inches="tight", dpi=600)
 plt.close()
 
-labelspace = 1.2
-dendsize = 0.9
 
-methods = ["single", "complete", "average", "weighted"]
-# methods = ["average"]
-for m in methods:
-    left = center(flankE_mean.loc[ucores].values[:,ltrim*4:flankLen*4])
-    linkage = shc.linkage(left, method=m, metric="cityblock", optimal_ordering=True)
-    figsize = np.array(left.transpose().shape)/4
-    figsize[0] /= 0.92
-    fig = plt.figure(figsize=figsize)
-    ax1 = fig.add_axes((0, 0, 1, 1))
-    ax2 = fig.add_axes((1 + labelspace/figsize[0], 0, dendsize/figsize[0], 1))
-    with plt.rc_context({'lines.linewidth': 1.0}):
-        argsort = shc.dendrogram(linkage, orientation="right", ax=ax2, no_labels=True, color_threshold=0, above_threshold_color="black",)["leaves"][::-1]
-    tools.plotGrid(None, left[argsort], xticks=posLabels[ltrim*4:flankLen*4], yticks=ucores[argsort], gridstridex=4, gridstridey=None, vmin=-0.25, vmax=1.25, vline=(flankLen-ltrim)*4-0.5, cmap="RdBu_r", ax=ax1)
-    ax2.axis("off")
-    plt.savefig(rndir + "_edges_left_clustered_" + m + imgext, bbox_inches="tight", dpi=600)
-    plt.close()
+ltrim = 3
+rtrim = 3
+method = 'average'
+argsort = None
 
-    right = center(flankE_mean.loc[ucores].values[:,flankLen*4:-rtrim*4])
-    linkage = shc.linkage(right, method=m, metric="cityblock", optimal_ordering=True)
-    figsize = np.array(right.transpose().shape)/4
-    figsize[0] /= 0.92
-    fig = plt.figure(figsize=figsize)
-    ax1 = fig.add_axes((0, 0, 1, 1))
-    ax2 = fig.add_axes((-dendsize/figsize[0]-labelspace/figsize[0], 0, dendsize/figsize[0], 1))
-    with plt.rc_context({'lines.linewidth': 1.0}):
-        argsort = shc.dendrogram(linkage, orientation="left", ax=ax2, no_labels=True, color_threshold=0, above_threshold_color="black",)["leaves"][::-1]
-    tools.plotGrid(None, right[argsort], xticks=posLabels[flankLen*4:-rtrim*4], yticks=ucores[argsort], gridstridex=4, gridstridey=None, vmin=-0.25, vmax=1.25, vline=-0.5, cmap="RdBu_r", ax=ax1)
-    ax1.yaxis.tick_left()
-    ax2.axis("off")
-    plt.savefig(rndir + "_edges_right_clustered_" + m + imgext, bbox_inches="tight", dpi=600)
-    plt.close()
+left = center(flankE_mean.loc[ucores].values[:,ltrim*4:flankLen*4], flankBound)
+linkage = shc.linkage(left, method=method, metric="cityblock", optimal_ordering=True)
+figsize = np.array(left.transpose().shape)/4
+figsize[0] /= 0.92
+fig = plt.figure(figsize=figsize)
+ax1 = fig.add_axes((0, 0, 1, 1))
+ax2 = fig.add_axes((1 + labelspace/figsize[0], 0, dendsize/figsize[0], 1))
+with plt.rc_context({'lines.linewidth': 1.0}):
+    argsort = shc.dendrogram(linkage, orientation="right", ax=ax2, no_labels=True, color_threshold=0, above_threshold_color="black",)["leaves"]
+tools.plotGrid(None, left[argsort], xticks=posLabels[ltrim*4:flankLen*4], yticks=ucores[argsort], gridstridex=4, gridstridey=None, vmin=-0, vmax=1, vline=(flankLen)*4-0.5-ltrim*4, cmap="RdBu_r", ax=ax1)
+ax2.axis("off")
+
+right = center(flankE_mean.loc[ucores].values[:,flankLen*4:-rtrim*4], flankBound)
+linkage = shc.linkage(right, method=method, metric="cityblock", optimal_ordering=True)
+ax3 = fig.add_axes((1+labelspace/figsize[0]+dendsize/figsize[0] + 0.3/figsize[0], 0, dendsize/figsize[0], 1))
+ax4 = fig.add_axes((1 + 2*labelspace/figsize[0] + 2*dendsize/figsize[0] + 0.3/figsize[0], 0, 1, 1))
+with plt.rc_context({'lines.linewidth': 1.0}):
+    argsort = shc.dendrogram(linkage, orientation="left", ax=ax3, no_labels=True, color_threshold=0, above_threshold_color="black",)["leaves"]
+tools.plotGrid(None, right[argsort], xticks=posLabels[flankLen*4:-rtrim*4], yticks=ucores[argsort], gridstridex=4, gridstridey=None, vmin=0, vmax=1, vline=-0.5, cmap="RdBu_r", ax=ax4)
+ax4.yaxis.tick_left()
+ax3.axis("off")
+ax5 = fig.add_axes((2 + 2*labelspace/figsize[0] + 2*dendsize/figsize[0] + 0.5/figsize[0], 0.6/figsize[1], 0.3/figsize[0], cbarheight/figsize[1]))
+plt.colorbar(mpl.cm.ScalarMappable(cmap='RdBu'), cax=ax5, pad=0, ticks=[0, 1])
+ax5.set_yticklabels([-flankBound, flankBound], fontsize=18)
+ax5.set_ylabel("$\it{-ΔΔG/RT}$", fontsize=18, rotation=270, labelpad=4, fontweight='bold')
+plt.savefig(rndir + "_flank_clustered_" + method + imgext, bbox_inches="tight", dpi=600)
+plt.close()

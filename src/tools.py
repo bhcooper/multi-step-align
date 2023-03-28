@@ -97,27 +97,24 @@ def plotGrid(filename, matrix, xticks=[], yticks=[], xtickrotation="horizontal",
     if(ax == None):
         fig, ax = plt.subplots(figsize=figsize)
         axGiven = False
-    ax.pcolormesh(matrix, cmap=cmap, vmin=vmin, vmax=vmax)
+    ax.matshow(matrix, cmap=cmap, vmin=vmin, vmax=vmax, aspect='equal')
     ax.invert_yaxis()
-    # ax.matshow(matrix, cmap=cmap, vmin=vmin, vmax=vmax, aspect="auto")
     if(vline):
-        ax.axvline(vline+0.5, color='red', linewidth=2)
-        # ax.axvline(vline, color='red', linewidth=2)
+        ax.axvline(vline, color='red', linewidth=2)
     if(vlines):
-        [ax.axvline(line+0.5, color='firebrick', linewidth=4) for line in vlines]
-        # [ax.axvline(line, color='firebrick', linewidth=4) for line in vlines]
-    ax.set_xticks(np.arange(matrix.shape[1])+0.5)
+        [ax.axvline(line, color='firebrick', linewidth=4) for line in vlines]
+    ax.set_xticks(np.arange(matrix.shape[1]))
     # ax.set_xticks(np.arange(matrix.shape[1]))
-    ax.set_yticks(np.arange(matrix.shape[0])+0.5)
+    ax.set_yticks(np.arange(matrix.shape[0]))
     # ax.set_yticks(np.arange(matrix.shape[0]))
     if(gridstridex == None):
         gridstridex = matrix.shape[1]
     if(gridstridey == None):
         gridstridey = matrix.shape[0]
-    ax.set_xticks(np.append(np.arange(matrix.shape[1]+1)[::gridstridex], matrix.shape[1]), minor=True)
-    # ax.set_xticks(np.arange(matrix.shape[1]+1)[::gridstridex] - 0.5, minor=True)
-    ax.set_yticks(np.append(np.arange(matrix.shape[0]+1)[::gridstridey], matrix.shape[0]), minor=True)
-    # ax.set_yticks(np.arange(matrix.shape[0]+1)[::gridstridey] - 0.5, minor=True)
+    # ax.set_xticks(np.append(np.arange(matrix.shape[1]+1)[::gridstridex], matrix.shape[1]), minor=True)
+    ax.set_xticks(np.arange(matrix.shape[1]+1)[::gridstridex] - 0.5, minor=True)
+    # ax.set_yticks(np.append(np.arange(matrix.shape[0]+1)[::gridstridey], matrix.shape[0]), minor=True)
+    ax.set_yticks((np.arange(matrix.shape[0]+1)[::gridstridey] - 0.5), minor=True)
     ax.set_xticklabels(xticks, fontsize=16, rotation=xtickrotation)
     ax.xaxis.set_ticks_position('top') 
     ax.set_yticklabels(yticks, fontsize=18, rotation=ytickrotation, fontname="Courier New")
@@ -131,7 +128,6 @@ def plotGrid(filename, matrix, xticks=[], yticks=[], xtickrotation="horizontal",
     ax.set_title(title)
     if(tick_left):
         ax.yaxis.tick_left()
-
     if(not axGiven):
         plt.savefig(filename, bbox_inches="tight", pad_inches=0, dpi=600)
         plt.close()
