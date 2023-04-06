@@ -250,15 +250,23 @@ def getHit(cores, starts, seqs, ladapter, radapter, query, ncores, corelookup, c
                     if(matches[0].start() >= ladapterlen and matches[0].end() <= ladapterlen + seqlen - ngap):
                         cores[i] = c
                         starts[i] = matches[0].start() - ladapterlen
+                    else:
+                        starts[i] = -2
                 # onRC
                 else: 
                     if(matches[0].start() >= ladapterlen + ngap and matches[0].end() <= ladapterlen + seqlen):
                         cores[i] = c
                         starts[i] = matches[0].start() - ladapterlen
+                    else:
+                        starts[i] = -2
             else:
                 if (matches[0].start() >= ladapterlen and matches[0].end() <= ladapterlen + seqlen):
                     cores[i] = c
                     starts[i] = matches[0].start() - ladapterlen
+                else:
+                    starts[i] = -2
+        if(len(matches) > 1):
+            starts[i] = -3
 
 def countHits(counts, seqs, ladapter, radapter, query, indices):
     for i in indices:

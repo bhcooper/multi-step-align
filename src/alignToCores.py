@@ -68,11 +68,18 @@ starts = sm.full(len(seqs), -1, dtype=np.int8)
 tools.parallelAsync(tools.getHit, ncpu, cores, starts, seqs, ladapter, radapter, query, ncores, corelookup, corelens, maxcorelen)
 
 print("Filtering unalignable reads . . .")
-filt = np.logical_not(starts == -1)
+nohit = starts == -1
+adapterhit = starts == -2
+multihit = starts == -3
+filt = np.logical_not(starts < 0)
 seqs = seqs[filt]
 cores = cores[filt]
 starts = starts[filt]
-print(("%.2f" % (100 * np.sum(y[filt])/np.sum(y))) + "% of reads can be validly aligned (excluding cores that span the fixed adapters)")
+total = np.sum(y)
+print(("%.2f" % (100 * np.sum(y[filt])/total)) + "% of reads can be validly aligned")
+print(("%.2f" % (100 * np.sum(y[nohit])/total)) + "% of reads do not contain a core")
+print(("%.2f" % (100 * np.sum(y[adapterhit])/total)) + "% of reads include a single core which spans a fixed adapter")
+print(("%.2f" % (100 * np.sum(y[multihit])/total)) + "% of reads contain multiple cores")
 y = y[filt]
 
 print("Orienting reverse complements . . .")
