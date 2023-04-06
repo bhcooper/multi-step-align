@@ -238,6 +238,7 @@ scoreMLR.py Fkh1_R2_allcores_-4_+0.tsv 4 0
 To compare our alignment-based framework with a deep learning approach, we trained a model based on DeepBind's reverse-complement parameter sharing framework<sup>5,6</sup> to predict high-resolution estimates of the *ΔΔG/RT* for any given 13-mer. To interpret the model in a matter that is comparable to our approach, we first predicted the *ΔΔG/RT* of all 13-mers covering four bp 5' and two bp 3' each of our selected seven bp cores. We then used these predictions to train an MLR model for each core, using 1-mer sequence features of the flanks as input. For each flanking position, model weights are centered and plotted for comparison with our flanking *ΔΔG/RT* measurements.
 
 <sup>5</sup> *Alipanahi, B., Delong, A., Weirauch, M. T., & Frey, B. J. (2015). Predicting the sequence specificities of DNA-and RNA-binding proteins by deep learning. Nature biotechnology, 33(8), 831-838.*
+
 <sup>6</sup> *Shrikumar, A., Greenside, P., & Kundaje, A. (2017). Reverse-complement parameter sharing improves deep learning models for genomics. BioRxiv, 103663.*
 
 ```
