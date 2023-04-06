@@ -12,8 +12,11 @@ mpl.use('Agg')
 from matplotlib import rcParams
 rcParams['font.family'] = 'Arial'
 
+imgext = '.png'
+# imgext = '.svg'
+
 def MSE(x, y):
-    return np.sum((x - y)**2)
+    return np.sum((x - y)**2)/len(x)
 
 Nlookup = {"A":0, "C":1, "G":2, "T":3}
 
@@ -48,9 +51,8 @@ r = np.corrcoef(df.iloc[:,0], df.iloc[:,1])[0,1]
 print("r: " + str(r))
 mse = MSE(df.iloc[:,0], df.iloc[:,1])
 print("MSE: " + str(mse))
-ax.text(low+(0.4*length),high-(0.15*length), '${r}$ = %.2f' % r, fontsize=12, ha='right')
-ax.text(low+(0.4*length),high-(0.23*length), '${ρ}$ = %.2f' % mse, fontsize=12, ha='right')
-# ax.text(high-0.4*length,low+0.05*length, '${R^2}$ = %.2f' % r2, fontsize=12)
+ax.text(low+(0.3*length),high-(0.15*length), '${r}$ = %.2f' % r, fontsize=12, ha='center')
+ax.text(low+(0.3*length),high-(0.23*length), '${MSE}$ = %.2f' % mse, fontsize=12, ha='center')
 plt.ylim((low,high))
 ax.set_xticks(ax.get_yticks())
 plt.xticks(fontsize=10)
@@ -60,5 +62,5 @@ plt.title('ChIP-exo Core Preferences', fontsize=14)
 plt.xlabel('observed [ln($p$)]', fontsize=14)
 plt.ylabel('alignment-based [ln($p$)]', fontsize=14)
 # plt.plot([low, high], [low, high], color = 'firebrick', alpha=0.5, linewidth = 1)
-plt.savefig("predSELEX.png", bbox_inches="tight", dpi=1200)
+plt.savefig("predSELEX" + imgext, bbox_inches="tight", dpi=1200)
 plt.close()

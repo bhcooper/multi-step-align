@@ -168,8 +168,8 @@ plt.close()
 
 coreE_mean = coreE_mean.to_frame()
 coreE_mean['CI'] = coreE_CI
-coreE_mean.to_csv(rndir + "_core_ddG.tsv", sep='\t', header='ΔΔG/RT\t95%_CI')
-np.exp(-coreE_mean.iloc[:,0]).to_csv(rndir + "_core_RelE.tsv", sep='\t', header='RelE')
+coreE_mean.to_csv(rndir + "_core_ddG.tsv", sep='\t', header=['ddG/RT','95%_CI'])
+np.exp(-coreE_mean.iloc[:,0]).to_csv(rndir + "_core_RelE.tsv", sep='\t', header=['RelE'])
 
 # Provide outputs based on the flank enrichments
 

@@ -38,6 +38,6 @@ setup(
         "logomaker",
         "h5py",
         "tensorflow",
-        "TopDownCrawl"
+        "TopDownCrawl",
     ],
 )

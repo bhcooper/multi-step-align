@@ -124,38 +124,84 @@ bedtools getfasta -fi sacCer3.fa -bed Fkh1_combined_100_merged.bed > Fkh1_combin
 From this output, we can calculate the relative frequency of cores which appear to have been bound by Fkh1 *in vivo*. We can then compare these values to those that would be predicted based on the relative frequency of each core accross the entire genome and the enrichment measurements obtained from the SELEX-seq experiment. 
 
 ```
-# Fkh1_core_RelE.tsv in Fkh1_analysis folder
-countHits.py Fkh1_combined_100_merged.fa Fkh1_core_RelE.tsv
-countHits.py sacCer3.fa Fkh1_core_RelE.tsv
+# Fkh1_core_RelE.tsv in Fkh1_analysis folder, we focus only on 7-mers for this analysis
+groupByLength.py Fkh1_core_RelE.tsv
+# Output: Fkh1_core_RelE_k7.tsv
+countHits.py Fkh1_combined_100_merged.fa Fkh1_core_RelE_k7.tsv
+countHits.py sacCer3.fa Fkh1_core_RelE_k7.tsv
 # Output: Fkh1_combined_100_merged_hits.tsv, sacCer3_hits.tsv
 
-predictObservationsWithSELEX.py Fkh1_combined_100_merged_hits.tsv sacCer3_hits.tsv Fkh1_core_RelE.tsv
+predictObservationsWithSELEX.py Fkh1_combined_100_merged_hits.tsv sacCer3_hits.tsv Fkh1_core_RelE_k7.tsv
 # Output: predSELEX.png
 ```
 
-Alternatively, we can predict the expected enrichment using predicted frequencies according to a BEESEM-derived PFM. BEESEM can be downloaded from the GitHub page linked below. 
+Alternatively, we can predict the expected enrichment using predicted frequencies according to a BEESEM-derived PFM. The orignal BEESEM GitHub page is linked below, however we provide a forked repository with minimal changes to allow execution of beesem.py and formatter.py after installation with setup.py.
 
 https://github.com/sx-ruan/BEESEM
+https://github.com/bhcooper/BEESEM
+
+Additionally, we create a new environment for BEESEM since it requires Python 2.7. 
 
 ``` 
-beesem.py -s <most enriched 7-mer as seed> <output name> <processed prior> <processed R# input>
-beesem.py -s GTAAACA beesem_k7 Fkh1_Fkh2_R0.tsv Fkh1_R1.tsv
+conda create -c conda-forge -c bioconda -c defaults -n BEESEM python=2.7 seqtk
+conda activate BEESEM
+pip install numpy scipy matplotlib
+pip install openopt funcdesigner
+git clone https://github.com/bhcooper/BEESEM.git
+cd BEESEM
+pip install .
+cd ..
+
+# We were not able to run BEESEM with our full set of reads due to the extreme computational demands, so we used a random subset of  10% of our reads
+seqtk sample Fkh1_Fkh2_R0.fastq.gz 0.1 | gzip > Fkh1_Fkh2_R0_0.1.fastq.gz
+seqtk sample Fkh1_R1.fastq.gz 0.1 | gzip > Fkh1_R1_0.1.fastq.gz
+
+conda activate multi-step-align
+countUnique.py Fkh1_Fkh2_R0_0.1.fastq.gz
+countUnique.py Fkh1_R1_0.1.fastq.gz
+
+# Remove headers for BEESEM
+tail -n +2 Fkh1_Fkh2_R0_0.1.tsv > Fkh1_Fkh2_R0_0.1_BEESEM.tsv
+tail -n +2 Fkh1_R1_0.1.tsv > Fkh1_R1_0.1_BEESEM.tsv
+
+conda activate BEESEM
+# beesem.py -s <most enriched 7-mer as seed> -f <ladapter> <radapter> <output name> <processed prior> <processed R# input>
+beesem.py -s GTAAACA -f GAGTTCTACAGTCCGACGATCCAG TCCGTATCGCTCCTCCAATG beesem_GTAAACA Fkh1_Fkh2_R0_0.1_BEESEM.tsv Fkh1_R1_0.1_BEESEM.tsv
 # Output: beesem_k7_rep=1_phs=10/results/pfm_r0_p9_w7.txt
 
-predictObservationsWithBEESEM.py Fkh1_combined_100_merged_hits.tsv sacCer3_hits.tsv beesem_k7_rep=1_phs=10/results/pfm_r0_p9_w7.txt
+conda activate multi-step-align
+predictObservationsWithBEESEM.py Fkh1_combined_100_merged_hits.tsv sacCer3_hits.tsv beesem_GTAAACA_rep=1_phs=10/results/pfm_r0_p9_w7.txt
 # Output: predBEESEM.png
 ```
 
-We also investigated whether the *in vivo* enrichment of bp flanking the core could be estimated using our SELEX-seq data. For this purpose, we focused on the positions flanking the most enriched core GTAAACA.
+We also investigated whether the *in vivo* enrichment of bp flanking the core could be estimated using our SELEX-seq data. For this purpose, we focused on the positions flanking the most enriched core GTAAACA. This script performs both the alignment-based and BEESEM-based comparisons. With limited memory, BEESEM can be used to to calculate 5' and 3' preferences separately, then preferenced from each can be used. 
 
 ```
+conda activate BEESEM
+beesem.py -s AAAAGTAAACA -f GAGTTCTACAGTCCGACGATCCAG TCCGTATCGCTCCTCCAATG beesem_AAAAGTAAACA Fkh1_Fkh2_R0_0.1_BEESEM.tsv Fkh1_R1_0.1_BEESEM.tsv
+beesem.py -s GTAAACAAA -f GAGTTCTACAGTCCGACGATCCAG TCCGTATCGCTCCTCCAATG beesem_GTAAACAAA Fkh1_Fkh2_R0_0.1_BEESEM.tsv Fkh1_R1_0.1_BEESEM.tsv
+
+conda activate multi-step-align
 countFlanks.py Fkh1_combined_100_merged.fa GTAAACA 4 2
 countFlanks.py sacCer3.fa GTAAACA 4 2
 # Output: Fkh1_combined_100_merged_GTAAACA_-4_+2.tsv, sacCer3_GTAAACA_-4_+2.tsv
 
-# Fkh1_flank_ddG.tsv in Fkh1_analysis folder
-predictFlanks.py Fkh1_combined_100_merged_GTAAACA_-4_+2.tsv sacCer3_GTAAACA_-4_+2.tsv Fkh1_flank_ddG.tsv GTAAACA BEESEM_flanks.txt
-# Output: predFlanks_GTAAACA.png, metrics printed to STDOUT
+# Fkh1_flank_ddG.tsv from Fkh1_analysis folder
+# Help: predictFlanks.py -h
+predictFlanks.py Fkh1_combined_100_merged_GTAAACA_-4_+2.tsv sacCer3_GTAAACA_-4_+2.tsv Fkh1_flank_ddG.tsv GTAAACA \
+    beesem_AAAAGTAAACA_rep=1_phs=10/results/pfm_r0_p9_w11.txt 4 beesem_GTAAACAAA_rep=1_phs=10/results/pfm_r0_p9_w9.txt 2
+# Output: predFlanks_GTAAACA.png, performance metrics are printed to STDOUT
+```
+
+If you have a computer with a large amount of memory (≈128 GB), you can use BEESEM to generate a 13-bp motif covering all flanking positions of interest. To do this, you must first set the "cutoff_motif_length" variable to 13 within the beesem.py script and reinstall beesem.
+
+```
+conda activate BEESEM
+beesem.py -s AAAAGTAAACAAA -f GAGTTCTACAGTCCGACGATCCAG TCCGTATCGCTCCTCCAATG beesem_AAAAGTAAACAAA Fkh1_Fkh2_R0_0.1_BEESEM.tsv Fkh1_R1_0.1_BEESEM.tsv
+
+conda activate multi-step-align
+predictFlanks.py Fkh1_combined_100_merged_GTAAACA_-4_+2.tsv sacCer3_GTAAACA_-4_+2.tsv Fkh1_flank_ddG.tsv GTAAACA \
+    beesem_AAAAGTAAACAAA_rep=1_phs=10/results/pfm_r0_p9_w13.txt 4 beesem_AAAAGTAAACAAA_rep=1_phs=10/results/pfm_r0_p9_w13.txt 2
 ```
 
 In our case, SELEX-based predictions were able to better predict the observed enrichment of core sequences and flanking bp compared to BEESEM-based predictions. Additional details are discussed in the text<sup>1</sup>. 
@@ -165,25 +211,24 @@ In our case, SELEX-based predictions were able to better predict the observed en
 The goal of this section is to use MLR to probe the importance of interdependencies accross differing regions of the binding site. By using this simple model, we can easily add or withold higher order features, as described in the text<sup>1</sup>, to determine what extent these features impact performance. 
 
 ```
-getMaskedEnrichment.py <input alignment> <round #> <5' flank length> <3' flank length>
-getMaskedEnrichment.py Fkh1_R2_allcores.tsv 2 4 2
+# Help: getMaskedEnrichment.py -h
+# getMaskedEnrichment.py <R0 input> <input alignment> <round #> <max core length> <5' flank length> <3' flank length>
+getMaskedEnrichment.py Fkh1_Fkh2_R0.tsv Fkh1_R2_allcores.tsv 2 7 4 2
 # Output: Fkh1_R2_allcores_-4_+2.tsv
 
-getMaskedEnrichment.py <input> <5' flank length> <3' flank length>
+# scoreMLR.py <enrichment table> <5' flank length> <3' flank length>
 scoreMLR.py Fkh1_R2_allcores_-4_+2.tsv 4 2
-# Output: Fkh1_R2_allcores_-4_+2_MLR.png
+# Output: Fkh1_R2_allcores_-4_+2_MLR.png, Fkh1_R2_allcores_-4_+2_MLR.tsv
 ```
 
 We can also evaluate the performance of models predicting *ΔΔG/RT* of shorter *k*-mers, which cannot capture as many interependencies, but are generally less noisy.
 
 ```
-getMaskedEnrichment.py <input alignment> <round #> <5' flank length> <3' flank length>
-getMaskedEnrichment.py Fkh1_R2_allcores.tsv 2 4 0
+getMaskedEnrichment.py Fkh1_Fkh2_R0.tsv Fkh1_R2_allcores.tsv 2 7 4 0
 # Output: Fkh1_R2_allcores_-4_+0.tsv
 
-getMaskedEnrichment.py <input> <5' flank length> <3' flank length>
 scoreMLR.py Fkh1_R2_allcores_-4_+0.tsv 4 0
-# Output: Fkh1_R2_allcores_-4_+0_MLR.png
+# Output: Fkh1_R2_allcores_-4_+0_MLR.png, Fkh1_R2_allcores_-4_+0_MLR.tsv
 ```
 
 ## Predicting flanking preferences using DeepBind and MLR
@@ -191,24 +236,20 @@ scoreMLR.py Fkh1_R2_allcores_-4_+0.tsv 4 0
 To compare our alignment-based framework with a deep learning approach, we trained a model based on DeepBind's reverse-complement weight sharing framework<sup>4</sup> to predict high-resolution estimates of the *ΔΔG/RT* for any given 13-mer. To interpret the model in a matter that is comparable to our approach, we first predicted the *ΔΔG/RT* of all 13-mers covering four bp 5' and two bp 3' each of our selected seven bp cores. We then used these predictions to train an MLR model for each core, using 1-mer sequence features of the flanks as input. For each flanking position, model weights are centered and plotted for comparison with our flanking *ΔΔG/RT* measurements.
 
 ```
-# I used conda to ensure compatible versioning with DeepBind
-conda create -n deepbind tensorflow=1 h5py=2.10 pandas matplotlib logomaker scikit-learn
-conda activate deepbind
-
-git clone --branch keras_1 https://github.com/kundajelab/keras.git
-cd keras
-pip install .
-cd ..
-
-# Removing the 100 count minimum seemed to greatly improve predictive power in my case
-calculateEnrichmentNoMin.R Fkh1_Fkh2_R0.fastq.gz Fkh1_R2.fastq.gz 2 13
+# Removing the 100 count minimum greatly improves predictive power, feel free to evaluate the filtered dataset by using calculateEnrichment.R instead
+calculateEnrichmentNoMin.py Fkh1_Fkh2_R0_split1.tsv Fkh1_Fkh2_R0_split2.tsv Fkh1_R2.tsv 2 13
 # Output: Fkh1_R2_k13_noMin.tsv
 
 trainDeepBind.py Fkh1_R2_k13_noMin.tsv
-# Output: trained_cnn.h5, trained_minMax.pkl
+# Output: trained_cnn.h5
 
-predDeepBind.py trained_cnn.h5 traind_minMax.pkl Fkh1_core_ddG.tsv Fkh1_flank_ddG.tsv
-# Output: DeepBind_MLR.png
+# From Fkh1_analysis folder
+groupByLength.py Fkh1_core_ddG.tsv
+# Output: Fkh1_core_ddG_k7.tsv
+
+# Help: predDeepBind.py -h
+predDeepBind.py trained_cnn.h5 Fkh1_core_ddG_k7.tsv Fkh1_flank_ddG.tsv 4 2 --bound 0.75
+# Output: DeepBind_logos, DeepBind_flank_matrix.png, alignment_flank_matrix.png
 ```
 
 We found that our framework was more sensitive to flanking preferences, especially for lower affinity cores. Furthermore, our model was better able to distinguish preferences for flanking bp which modulate the affinity of the selected core vs flanking bp which create additional cores. 

@@ -13,6 +13,7 @@ import pickle
 import regex as re
 
 from sklearn import metrics
+from sklearn import preprocessing
 from collections import defaultdict
 from pandas import read_csv
 from pandas import DataFrame as df
@@ -142,6 +143,14 @@ def consolidate(seqs, enrichment):
             lookup[key] = ave
             lookup[rc([key])[0]] = ave
     return np.array([lookup[seq] for seq in seqs])
+
+def oneHotEncode(Xlist):
+    if(not type(Xlist) == list):
+        Xlist = [Xlist]
+    Xlist = [X.reshape(-1,1) if len(X.shape) == 1 else X for X in Xlist]
+    encoder = preprocessing.OneHotEncoder(sparse=False).fit(np.concatenate(Xlist, axis=0))
+    Xlist = tuple(encoder.transform(X) for X in Xlist)
+    return Xlist + (encoder.categories_[0],)
 
 def consolidatedf(df):
     loc = df.index

@@ -8,7 +8,7 @@ import argparse
 from collections import defaultdict
 
 parser = argparse.ArgumentParser(description="Sorts candidate cores based on an interative framework in which reads containing identified cores are iteratively removed so that the enrichment of one core is independent of another.")
-parser.add_argument('R0_input', help='Counts for unique reads from the initial library, split for Markov model training/testing')
+parser.add_argument('R0_input', help='Counts for unique reads from the initial library')
 parser.add_argument("selected_input", help="Tab-delimited file containing counts for unique reads")
 parser.add_argument('SELEX_round', type=int, help='Number of rounds of selection between input and R0')
 parser.add_argument("candidate_cores", help="List of candidate cores to be prioritized")

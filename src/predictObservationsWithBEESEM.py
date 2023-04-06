@@ -13,7 +13,7 @@ from matplotlib import rcParams
 rcParams['font.family'] = 'Arial'
 
 def MSE(x, y):
-    return np.sum((x - y)**2)
+    return np.sum((x - y)**2)/len(x)
 
 Nlookup = {"A":0, "C":1, "G":2, "T":3}
 
@@ -47,14 +47,12 @@ high = df.max().max()
 length = high-low
 low -= 0.05 * length
 high += 0.05 * length
-# r2 = r2_score(df.iloc[:,0], df.iloc[:,1])
 r = np.corrcoef(df.iloc[:,0], df.iloc[:,1])[0,1]
 print("r: " + str(r))
 mse = MSE(df.iloc[:,0], df.iloc[:,1])
 print("MSE: " + str(mse))
-ax.text(low+(0.4*length),high-(0.15*length), '${r}$ = %.2f' % r, fontsize=12, ha='right')
-ax.text(low+(0.4*length),high-(0.23*length), '${ρ}$ = %.2f' % mse, fontsize=12, ha='right')
-# ax.text(high-0.4*length,low+0.05*length, '${R^2}$ = %.2f' % r2, fontsize=12)
+ax.text(low+(0.3*length),high-(0.15*length), '${r}$ = %.2f' % r, fontsize=12, ha='center')
+ax.text(low+(0.3*length),high-(0.23*length), '${MSE}$ = %.2f' % mse, fontsize=12, ha='center')
 plt.ylim((low,high))
 ax.set_xticks(ax.get_yticks())
 plt.xticks(fontsize=10)
