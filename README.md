@@ -1,3 +1,5 @@
+[![DOI](https://zenodo.org/badge/379775792.svg)](https://zenodo.org/badge/latestdoi/379775792)
+
 # Analysis of SELEX-seq Data for Understanding the Binding of FOX TFs
 Here we go over several analytical frameworks for the analysis of SELEX-seq data which we obtained for all *S. verecisiae* Forkhead box (FOX) transcription factors (TFs), as described in our manuscript<sup>1</sup>. The framework can be readily modified for application to other SELEX-seq datasets. 
 
