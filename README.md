@@ -1,5 +1,5 @@
 # Analysis of SELEX-seq Data for Understanding the Binding of FOX TFs
-Here we go over several analytical frameworks for the analysis of SELEX-seq data which we obtained for all *S. verecisiae* Forkhead box (FOX) transcription factors (TFs), as described in our manuscript<sup>1</sup>. The framework can be readily modified for application to other SELEX-seq datasets. 
+Here, we describe several analytical frameworks for the analysis of SELEX-seq data which we obtained for all *S. verecisiae* Forkhead box (FOX) transcription factors (TFs), as described in our manuscript<sup>1</sup>. The framework can be readily modified for application to other SELEX-seq datasets. 
 
 <sup>1</sup> *Cooper, B. H., Dantas Machado, A. C., Gan, Y., Aparicio, O. M., & Rohs, R. (2023). DNA Binding Specificity of all four Saccharomyces cerevisiae Forkhead Transcription Factors. Nucleic Acids Research*
 
